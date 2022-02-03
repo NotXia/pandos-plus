@@ -51,7 +51,7 @@ static semd_t *_initSemaphore(int *s_key) {
 static int _addActiveSemaphore(semd_t *new_sem) {
     struct semd_t *iter;
 
-    // Controlla che per il semaforo abbia almeno un processo bloccato
+    // Controlla che il semaforo abbia almeno un processo bloccato
     if (list_empty(&new_sem->s_procq) == TRUE) { return TRUE; }
 
     // Inserimento per mantenere la lista ordinata in senso non decrescente
