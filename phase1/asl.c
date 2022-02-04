@@ -66,32 +66,44 @@ static int _addActiveSemaphore(semd_t *new_sem) {
 }
 
 /**
+ * @brief Cerca e restituisce un semaforo attivo ricercato per chiave.
+ * @param s_key Puntatore alla chiave del semaforo da cercare
+ * @return Puntatore al semaforo, se trovato. NULL altrimenti.
+*/
+static semd_t *_getSemaphore(int *s_key) {
+    struct semd_t *iter;
+
+    list_for_each_entry(iter, &semd_h, s_link) {
+
+        // Semaforo esistente
+        if (iter->s_key == s_key) { return iter; }
+
+        // Semaforo inesistente
+        if (iter->s_key > s_key) { break; }
+    }
+
+    return NULL;
+}
+
+/**
  * @brief Inserisce un PCB alla lista dei processi bloccati di un semaforo identificato per chiave.
  *        Se il semaforo non è attivo, viene inizializzato.
- * @param semAdd Puntatore al semaforo a cui aggiungere il PCB
+ * @param semAdd Puntatore alla chiave del semaforo a cui aggiungere il PCB
  * @param p      Puntatore al PCB da inserire nella lista dei bloccati
  * @return TRUE in caso il semaforo non è attivo e non ci sono semafori liberi. FALSE altrimenti.
 */
 int insertBlocked(int *semAdd, pcb_t *p) {
-    struct semd_t *iter;
+    struct semd_t *sem = _getSemaphore(semAdd);
+    
+    if (sem != NULL) { // Semaforo esistente
+        list_add_tail(p, &sem->s_procq);
+    }
+    else { // Semaforo da inizializzare
+        sem = _initSemaphore(semAdd);
+        if (sem == NULL) { return TRUE; }
 
-    list_for_each_entry(iter, &semd_h, s_link) {
-        
-        // Semaforo esistente
-        if (iter->s_key == semAdd) {
-            list_add_tail(p, &iter->s_procq);
-            break;
-        }
-
-        // Semaforo inesistente
-        if (iter->s_key > semAdd) {
-            semd_t *new_sem = _initSemaphore(semAdd);
-            if (new_sem == NULL) { return TRUE; }
-
-            list_add_tail(p, &new_sem->s_procq);
-            _addActiveSemaphore(new_sem);
-            break;
-        }
+        list_add_tail(p, &sem->s_procq);
+        _addActiveSemaphore(sem);
     }
 
     return FALSE;
