@@ -1,4 +1,5 @@
 #include "asl.h"
+#include "pcb.h"
 
 static semd_t semd_table[MAXPROC];  // Allocazione dei semafori
 static LIST_HEAD(semdFree_h);       // Lista di semafori liberi
@@ -74,7 +75,6 @@ static semd_t *_getSemaphore(int *s_key) {
     struct semd_t *iter;
 
     list_for_each_entry(iter, &semd_h, s_link) {
-
         // Semaforo esistente
         if (iter->s_key == s_key) { return iter; }
 
@@ -86,37 +86,83 @@ static semd_t *_getSemaphore(int *s_key) {
 }
 
 /**
- * @brief Inserisce un PCB alla lista dei processi bloccati di un semaforo identificato per chiave.
+ * @brief Inserisce un PCB alla coda dei processi bloccati di un semaforo identificato per chiave.
  *        Se il semaforo non è attivo, viene inizializzato.
  * @param semAdd Puntatore alla chiave del semaforo a cui aggiungere il PCB
- * @param p      Puntatore al PCB da inserire nella lista dei bloccati
- * @return TRUE in caso il semaforo non è attivo e non ci sono semafori liberi. FALSE altrimenti.
+ * @param p      Puntatore al PCB da inserire nella lista dei processi bloccati
+ * @return TRUE se il semaforo non è attivo e non ci sono semafori liberi. FALSE altrimenti.
 */
 int insertBlocked(int *semAdd, pcb_t *p) {
     struct semd_t *sem = _getSemaphore(semAdd);
     
-    if (sem != NULL) { // Semaforo esistente
-        list_add_tail(p, &sem->s_procq);
+    if (sem != NULL) { // Semaforo esistente nella ASL
+        insertProcQ(&sem->s_procq, p);
     }
     else { // Semaforo da inizializzare
         sem = _initSemaphore(semAdd);
         if (sem == NULL) { return TRUE; }
 
-        list_add_tail(p, &sem->s_procq);
+        insertProcQ(&sem->s_procq, p);
         _addActiveSemaphore(sem);
     }
 
     return FALSE;
 }
 
+/**
+ * @brief Verifica se un semaforo è ancora attivo, in caso negativo viene rimosso dalla ASL e inserito nella lista dei semafori liberi.
+ * @param toCheckSem Puntatore al semaforo da aggiornare
+*/
+static void _updateActiveSemaphore(semd_t *toCheckSem) {
+    if (list_empty(&toCheckSem->s_procq) == TRUE) {
+        // Rimuove dalla ASL
+        list_del(&toCheckSem->s_link);
+
+        // Inserisce nella lista dei semafori liberi
+        list_add(toCheckSem, &semdFree_h);
+    }
+}
+
+/**
+ * @brief Rimuove e restituisce il primo PCB bloccato associato ad un semaforo ricercato per chiave. 
+ *        Se dopo la rimozione non ci sono più processi bloccati, il semaforo viene rimosso dalla ASL e inserito nei semafori liberi.
+ * @param semAdd Puntatore alla chiave del semaforo
+ * @return Il PCB rimosso se esiste. NULL altrimenti.
+*/
 pcb_t *removeBlocked(int *semAdd) {
+    struct semd_t *sem = _getSemaphore(semAdd);
+    if (sem == NULL) { return NULL; }
 
+    struct pcb_t *pcb = removeProcQ(&sem->s_procq);
+    _updateActiveSemaphore(sem);
+    
+    return pcb;
 }
 
+/**
+ * @brief Rimuove e restituisce uno specifico PCB bloccato associato ad un semaforo ricercato per chiave.
+ *        Se dopo la rimozione non ci sono più processi bloccati, il semaforo viene rimosso dalla ASL e inserito nei semafori liberi.
+ * @param p Puntatore al PCB da rimuovere
+ * @return Il PCB rimosso se esiste. NULL altrimenti.
+*/
 pcb_t *outBlocked(pcb_t *p) {
-
+    struct semd_t *sem = _getSemaphore(p->p_semAdd);
+    if (sem == NULL) { return NULL; }
+    
+    struct pcb_t *pcb = outProcQ(&sem->s_procq, p);
+    _updateActiveSemaphore(sem);
+    
+    return pcb;
 }
 
+/**
+ * @brief Restituisce il primo PCB bloccato associato ad un semaforo ricercato per chiave.
+ * @param semAdd Puntatore alla chiave del semaforo
+ * @return Il PCB in testa se esiste. NULL altrimenti.
+*/
 pcb_t *headBlocked(int *semAdd) {
+    struct semd_t *sem = _getSemaphore(semAdd);
+    if (sem == NULL) { return NULL; }
 
+    return headProcQ(&sem->s_procq);
 }
