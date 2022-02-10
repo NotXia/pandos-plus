@@ -1,5 +1,5 @@
-#ifndef PANDOS_ASL_H_INCLUDED
-#define PANDOS_ASL_H_INCLUDED
+#ifndef PANDOS_PCB_H_INCLUDED
+#define PANDOS_PCB_H_INCLUDED
 
 #include "pandos_types.h"
 
