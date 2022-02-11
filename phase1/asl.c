@@ -11,7 +11,7 @@ static LIST_HEAD(semd_h);           // Lista di semafori attivi (ASL)
 */
 void initASL() {
     // Inserisce ogni locazione disponibile per i semafori nella lista dei semafori liberi
-    for (int i=MAXPROC-1; i<=0; i--) {
+    for (int i=MAXPROC-1; i>=0; i--) {
         list_add(&semd_table[i].s_link, &semdFree_h);
     }
 }
@@ -44,14 +44,21 @@ static int _addActiveSemaphore(semd_t *new_sem) {
     // Controlla che il semaforo abbia almeno un processo bloccato
     if (emptyProcQ(&new_sem->s_procq) == TRUE) { return TRUE; }
 
+    int inserted = FALSE;
     struct semd_t *iter;
 
     // Inserimento per mantenere la lista ordinata in senso crescente per chiave
     list_for_each_entry(iter, &semd_h, s_link) {
         if (new_sem->s_key < iter->s_key) {
             __list_add(&new_sem->s_link, iter->s_link.prev, &iter->s_link);
+            inserted = TRUE;
             break;
         }
+    }
+
+    // Nel caso in cui si raggiunga la fine della lista senza che avvenga l'inserimento
+    if (inserted == FALSE) {
+        list_add_tail(&new_sem->s_link, &semd_h);
     }
 
     return FALSE;
@@ -66,7 +73,7 @@ static semd_t *_getSemaphore(int *s_key) {
     struct semd_t *iter;
 
     list_for_each_entry(iter, &semd_h, s_link) {
-        // Semaforo esistente
+        // Semaforo trovato
         if (iter->s_key == s_key) { return iter; }
 
         // Semaforo inesistente
@@ -96,6 +103,9 @@ int insertBlocked(int *semAdd, pcb_t *p) {
         insertProcQ(&sem->s_procq, p);
         _addActiveSemaphore(sem);
     }
+
+    // A questo punto il PCB è stato inserito correttamente nella coda dei processi bloccati del semaforo
+    p->p_semAdd = semAdd;
 
     return FALSE;
 }

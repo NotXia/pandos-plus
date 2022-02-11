@@ -1,13 +1,13 @@
 #include "pcb.h"
 
-static pcb_t pcbFree_table[MAX_PROC];
+static pcb_t pcbFree_table[MAXPROC];
 static LIST_HEAD(pcbFree_h);
 
 /**
  * @brief Inizializza le strutture dati.
 */
 void initPcbs() {
-    for (int i=MAXPROC-1; i<=0; i--) {
+    for (int i=MAXPROC-1; i>=0; i--) {
         list_add(&pcbFree_table[i].p_list, &pcbFree_h);
     }
 }
@@ -21,6 +21,26 @@ void freePcb(pcb_t *p) {
 }
 
 /**
+ * @brief Imposta i campi di un PCB inizializzandoli opportunamente a 0, NULL o lista vuota.
+ * @param pcb Puntatore al PCB da inizializzare.
+*/
+static void _initPcb(pcb_t *pcb) {
+    INIT_LIST_HEAD(&pcb->p_list);
+    pcb->p_parent = NULL;
+    INIT_LIST_HEAD(&pcb->p_child);
+    INIT_LIST_HEAD(&pcb->p_sib);
+    pcb->p_s.entry_hi = 0;
+    pcb->p_s.cause = 0;
+    pcb->p_s.status = 0;
+    pcb->p_s.pc_epc = 0;
+    for (int i=0; i<STATE_GPR_LEN; i++) { pcb->p_s.gpr[i] = 0; }
+    pcb->p_s.hi = 0;
+    pcb->p_s.lo = 0;
+    pcb->p_time = 0; 
+    pcb->p_semAdd = NULL;
+}
+
+/**
  * @brief Rimuove un elemento dalla lista dei PCB liberi e lo restituisce inizializzato.
  * @return L'elemento rimosso. NULL se la lista dei PCB liberi è vuota.
 */
@@ -28,17 +48,11 @@ pcb_t *allocPcb() {
     if (emptyProcQ(&pcbFree_h) == TRUE) {
         return NULL;
     } else {
-        pcb_t *out = container_of(&pcbFree_h.next, struct pcb_t, p_list);
+        pcb_t *out = container_of(pcbFree_h.next, struct pcb_t, p_list);
         list_del(&out->p_list);
 
         // Inizializzazione
-        INIT_LIST_HEAD(&out->p_list)
-        out->p_parent = NULL;
-        INIT_LIST_HEAD(&out->p_child)
-        INIT_LIST_HEAD(&out->p_sib)
-        out->p_s = 0;    
-        out->p_time = 0; 
-        out->p_semAdd = NULL;
+        _initPcb(out);
         
         return out;
     }
@@ -66,7 +80,7 @@ int emptyProcQ(struct list_head *head) {
  * @param head Puntatore alla testa della lista.
  * @param p Puntatore al PCB da inserire.
 */
-void insertProcQ(struct list_head *head, pcb *p) {
+void insertProcQ(struct list_head *head, pcb_t *p) {
     list_add_tail(&p->p_list, head);
 }
 
@@ -161,7 +175,7 @@ pcb_t *outChild(pcb_t *p) {
     if (p->p_parent == NULL) {
         return NULL;
     } else {
-        list_del(p->p_sib);
+        list_del(&p->p_sib);
         p->p_parent = NULL;
         return p;
     }
