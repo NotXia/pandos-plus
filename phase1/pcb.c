@@ -13,7 +13,7 @@ void initPcbs() {
 }
 
 /**
- * @brief Inserisce un PCB nella lista dei PCB liberi.
+ * @brief Inserisce uno specifico PCB nella lista dei PCB liberi.
  * @param p Puntatore del PCB da inserire.
 */
 void freePcb(pcb_t *p) {
@@ -21,7 +21,7 @@ void freePcb(pcb_t *p) {
 }
 
 /**
- * @brief Rimuove un elemento dalla lista dei PCB liberi.
+ * @brief Rimuove un elemento dalla lista dei PCB liberi e lo restituisce inizializzato.
  * @return L'elemento rimosso. NULL se la lista dei PCB liberi è vuota.
 */
 pcb_t *allocPcb() {
@@ -62,20 +62,20 @@ int emptyProcQ(struct list_head *head) {
 }
 
 /**
- * @brief Inserisce un processo nella coda dei processi.
+ * @brief Inserisce un PCB nella coda dei processi.
  * @param head Puntatore alla testa della lista.
- * @param p Puntatore al processo da inserire.
+ * @param p Puntatore al PCB da inserire.
 */
-void insertProcQ(struct list_head* head, pcb* p) {
+void insertProcQ(struct list_head *head, pcb *p) {
     list_add_tail(&p->p_list, head);
 }
 
 /**
  * @brief Restituisce l'elemento di testa della coda dei processi.
- * @param head Puntatore alla testa della lista.
+ * @param head Puntatore alla testa della coda.
  * @return La testa della coda. NULL se la coda è vuota.
 */
-pcb_t *headProcQ(struct list_head* head) {
+pcb_t *headProcQ(struct list_head *head) {
     if (list_empty(head) == TRUE) {
         return NULL;
     }
@@ -85,11 +85,11 @@ pcb_t *headProcQ(struct list_head* head) {
 }
 
 /**
- * @brief Rimuove il primo elemento dalla coda dei processi.
- * @param head Puntatore alla testa della lista.
- * @return Puntatore all'elemento rimosso. NULL se la lista è vuota.
+ * @brief Rimuove il primo elemento dalla coda dei processi e lo restituisce.
+ * @param head Puntatore alla testa della coda.
+ * @return Puntatore all'elemento rimosso. NULL se la coda è vuota.
 */
-pcb_t *removeProcQ(struct list_head* head) {
+pcb_t *removeProcQ(struct list_head *head) {
     if (list_empty(head) == TRUE) {
         return NULL;
     } else {
@@ -100,13 +100,14 @@ pcb_t *removeProcQ(struct list_head* head) {
 }
 
 /**
- * @brief Rimuove il PCB dalla coda dei processi.
- * @param head Puntatore alla testa della lista.
- * @param p Puntatore del PCB da rimuovere dalla lista.
+ * @brief Rimuove il PCB dalla coda dei processi e lo restituisce.
+ * @param head Puntatore alla testa della coda.
+ * @param p Puntatore del PCB da rimuovere dalla coda.
  * @return Il PCB rimosso. NULL se la coda è vuota.
 */
-pcb_t *outProcQ(struct list_head* head, pcb_t *p) {
+pcb_t *outProcQ(struct list_head *head, pcb_t *p) {
     pcb_t *pos;
+    // Verifica che il PCB sia effettivamente nella coda indicata
     list_for_each_entry(pos, head, p_list) {
         if (pos == p) {
             list_del(&p->p_list);
@@ -156,7 +157,7 @@ pcb_t *removeChild(pcb_t *p) {
  * @param p Puntatore al PCB.
  * @return Il PCB Rimosso. NULL se p non ha un padre.
 */
-pcb_t *outChild(pcb_t* p) {
+pcb_t *outChild(pcb_t *p) {
     if (p->p_parent == NULL) {
         return NULL;
     } else {
