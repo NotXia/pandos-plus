@@ -25,7 +25,7 @@ void freePcb(pcb_t *p) {
  * @return L'elemento rimosso. NULL se la lista dei PCB liberi è vuota.
 */
 pcb_t *allocPcb() {
-    if (list_empty(&pcbFree_h) == TRUE) {
+    if (emptyProcQ(&pcbFree_h) == TRUE) {
         return NULL;
     } else {
         pcb_t *out = container_of(&pcbFree_h.next, struct pcb_t, p_list);
@@ -76,11 +76,11 @@ void insertProcQ(struct list_head *head, pcb *p) {
  * @return La testa della coda. NULL se la coda è vuota.
 */
 pcb_t *headProcQ(struct list_head *head) {
-    if (list_empty(head) == TRUE) {
+    if (emptyProcQ(head) == TRUE) {
         return NULL;
     }
     else{    
-        return container_of(head, struct pcb_t, p_list);
+        return container_of(head->next, struct pcb_t, p_list);
     }
 }
 
@@ -90,10 +90,10 @@ pcb_t *headProcQ(struct list_head *head) {
  * @return Puntatore all'elemento rimosso. NULL se la coda è vuota.
 */
 pcb_t *removeProcQ(struct list_head *head) {
-    if (list_empty(head) == TRUE) {
+    if (emptyProcQ(head) == TRUE) {
         return NULL;
     } else {
-        pcb_t *out = container_of(head, struct pcb_t, p_list);
+        pcb_t *out = container_of(head->next, struct pcb_t, p_list);
         list_del(&out->p_list);
         return out;
     }
