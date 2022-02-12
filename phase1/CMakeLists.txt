@@ -3,10 +3,8 @@
 #
 
 add_library(pcb pcb.c)
-target_link_libraries(pcb PUBLIC pandos_types)
 
 add_library(asl asl.c)
-target_link_libraries(asl PUBLIC pandos_types)
 target_link_libraries(asl PRIVATE pcb)
 
 set_target_properties(
