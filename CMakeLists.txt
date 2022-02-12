@@ -1,5 +1,7 @@
-# Cmake ispirato da: https://github.com/Maldus512/umps_uarm_hello_world
+#
+# Realizzato a partire da: https://github.com/Maldus512/umps_uarm_hello_world
 # cmake -D CMAKE_TOOLCHAIN_FILE=../mips.cmake ..
+#
 cmake_minimum_required(VERSION 3.3)
 project(
 	PandosPlus
