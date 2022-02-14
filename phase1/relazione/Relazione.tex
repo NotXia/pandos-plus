@@ -69,7 +69,7 @@ sorting=none
             
         \vspace{6cm}
             
-        Anno accademico\\
+        Anno	 accademico\\
         $2021 - 2022$
             
         \vspace{0.8cm}
@@ -100,7 +100,7 @@ In questo modo, nel momento in cui un semaforo viene disimpiegato,
 lo stesso sarà il primo ad essere estratto se successivamente fosse necessario istanziare un semaforo, aumentando le possibilità di trovarlo all'interno della cache.
 
 \subsection{Lista dei semafori attivi}
-La lista dei semafori liberi (ASL) viene gestita utilizzando una lista ordinata rispetto alla chiave del semaforo come suggerito dallo \textit{Student Guide} \textbf{[AAA RICORDARSI DI METTERE IL RIFERIMENTO]}. \\
+La lista dei semafori liberi (ASL) viene gestita utilizzando una lista ordinata rispetto alla chiave del semaforo come suggerito dallo \textit{Student Guide} \cite{1}. \\
 Poiché si utilizzano liste bidirezionali, è stata realizzata una variazione rispetto all'implementazione proposta che non utilizza due nodi ausiliari ma 
 esegue un controllo per gestire il caso particolare in cui l'inserimento debba avvenire in coda.\\
 L'implementazione con lista ordinata permette di ottenere una soluzione più efficiente nella ricerca del semaforo attivo, riducendo il tempo di ricerca dei semafori attivi.
