@@ -52,7 +52,7 @@ Mkfile.old
 dkms.conf
 .vscode/settings.json
 
-
+build
 
 # Latex
 *.toc
@@ -66,3 +66,4 @@ dkms.conf
 *.run.xml
 *.blg
 *.bbl
+

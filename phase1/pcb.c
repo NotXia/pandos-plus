@@ -1,14 +1,16 @@
 #include "pcb.h"
 
-static pcb_t pcbFree_table[MAX_PROC];
-static LIST_HEAD(pcbFree_h);
+static pcb_t pcbFree_table[MAXPROC];
+static struct list_head pcbFree_h;
 
 /**
  * @brief Inizializza le strutture dati.
 */
 void initPcbs() {
-    for (int i=MAXPROC-1; i<=0; i--) {
-        list_add(&pcbFree_table[i].p_list, &pcbFree_h);
+    INIT_LIST_HEAD(&pcbFree_h);
+
+    for (int i=MAXPROC-1; i>=0; i--) {
+        freePcb(&pcbFree_table[i]);
     }
 }
 
@@ -21,24 +23,38 @@ void freePcb(pcb_t *p) {
 }
 
 /**
+ * @brief Imposta i campi di un PCB inizializzandoli opportunamente a 0, NULL o lista vuota.
+ * @param pcb Puntatore al PCB da inizializzare.
+*/
+static void _initPcb(pcb_t *pcb) {
+    INIT_LIST_HEAD(&pcb->p_list);
+    pcb->p_parent = NULL;
+    INIT_LIST_HEAD(&pcb->p_child);
+    INIT_LIST_HEAD(&pcb->p_sib);
+    pcb->p_s.entry_hi = 0;
+    pcb->p_s.cause = 0;
+    pcb->p_s.status = 0;
+    pcb->p_s.pc_epc = 0;
+    for (int i=0; i<STATE_GPR_LEN; i++) { pcb->p_s.gpr[i] = 0; }
+    pcb->p_s.hi = 0;
+    pcb->p_s.lo = 0;
+    pcb->p_time = 0; 
+    pcb->p_semAdd = NULL;
+}
+
+/**
  * @brief Rimuove un elemento dalla lista dei PCB liberi e lo restituisce inizializzato.
  * @return L'elemento rimosso. NULL se la lista dei PCB liberi è vuota.
 */
 pcb_t *allocPcb() {
-    if (emptyProcQ(&pcbFree_h) == TRUE) {
+    if (list_empty(&pcbFree_h)) {
         return NULL;
     } else {
-        pcb_t *out = container_of(&pcbFree_h.next, struct pcb_t, p_list);
+        // Rimozione in testa
+        pcb_t *out = container_of(pcbFree_h.next, pcb_t, p_list);
         list_del(&out->p_list);
 
-        // Inizializzazione
-        INIT_LIST_HEAD(&out->p_list)
-        out->p_parent = NULL;
-        INIT_LIST_HEAD(&out->p_child)
-        INIT_LIST_HEAD(&out->p_sib)
-        out->p_s = 0;    
-        out->p_time = 0; 
-        out->p_semAdd = NULL;
+        _initPcb(out);
         
         return out;
     }
@@ -66,7 +82,7 @@ int emptyProcQ(struct list_head *head) {
  * @param head Puntatore alla testa della lista.
  * @param p Puntatore al PCB da inserire.
 */
-void insertProcQ(struct list_head *head, pcb *p) {
+void insertProcQ(struct list_head *head, pcb_t *p) {
     list_add_tail(&p->p_list, head);
 }
 
@@ -76,11 +92,11 @@ void insertProcQ(struct list_head *head, pcb *p) {
  * @return La testa della coda. NULL se la coda è vuota.
 */
 pcb_t *headProcQ(struct list_head *head) {
-    if (emptyProcQ(head) == TRUE) {
+    if (emptyProcQ(head)) {
         return NULL;
     }
     else{    
-        return container_of(head->next, struct pcb_t, p_list);
+        return container_of(head->next, pcb_t, p_list);
     }
 }
 
@@ -90,23 +106,25 @@ pcb_t *headProcQ(struct list_head *head) {
  * @return Puntatore all'elemento rimosso. NULL se la coda è vuota.
 */
 pcb_t *removeProcQ(struct list_head *head) {
-    if (emptyProcQ(head) == TRUE) {
+    if (emptyProcQ(head)) {
         return NULL;
     } else {
-        pcb_t *out = container_of(head->next, struct pcb_t, p_list);
+        pcb_t *out = headProcQ(head);
         list_del(&out->p_list);
+
         return out;
     }
 }
 
 /**
- * @brief Rimuove il PCB dalla coda dei processi e lo restituisce.
+ * @brief Rimuove il PCB dalla coda dei processi specificata e lo restituisce.
  * @param head Puntatore alla testa della coda.
  * @param p Puntatore del PCB da rimuovere dalla coda.
  * @return Il PCB rimosso. NULL se la coda è vuota.
 */
 pcb_t *outProcQ(struct list_head *head, pcb_t *p) {
     pcb_t *pos;
+
     // Verifica che il PCB sia effettivamente nella coda indicata
     list_for_each_entry(pos, head, p_list) {
         if (pos == p) {
@@ -132,8 +150,17 @@ int emptyChild(pcb_t *p) {
  * @param p Puntatore al PCB figlio.
 */
 void insertChild(pcb_t *prnt, pcb_t *p) {
-    list_add(&p->p_sib, &prnt->p_child);
+    list_add_tail(&p->p_sib, &prnt->p_child);
     p->p_parent = prnt;
+}
+
+/**
+ * @brief Dato un PCB, lo rimuove dall'albero a cui appartiene
+ * @param pcb Puntatore al PCB da rimuovere.
+*/
+static void _removeFromTree(pcb_t *pcb) {
+    list_del(&pcb->p_sib);
+    pcb->p_parent = NULL;
 }
 
 /**
@@ -142,12 +169,13 @@ void insertChild(pcb_t *prnt, pcb_t *p) {
  * @return Il PCB rimosso. NULL se p non ha figli.
 */
 pcb_t *removeChild(pcb_t *p) {
-    if (emptyChild(p) == TRUE) {
+    if (emptyChild(p)) {
         return NULL;
     } else {
-        pcb_t *out = container_of(p->p_child.next, struct pcb_t, p_sib);
-        list_del(&out->p_sib);
-        out->p_parent = NULL;
+        pcb_t *out = container_of(p->p_child.next, pcb_t, p_sib);
+        
+        _removeFromTree(out);
+
         return out;
     }
 }
@@ -161,8 +189,8 @@ pcb_t *outChild(pcb_t *p) {
     if (p->p_parent == NULL) {
         return NULL;
     } else {
-        list_del(p->p_sib);
-        p->p_parent = NULL;
+        _removeFromTree(p);
+
         return p;
     }
 }
