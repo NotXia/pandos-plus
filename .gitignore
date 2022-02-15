@@ -52,5 +52,18 @@ Mkfile.old
 dkms.conf
 .vscode/settings.json
 
-
 build
+
+# Latex
+*.toc
+*.log
+*.fls
+*.fdb_latexmk
+*.bcf
+*.aux
+*.synctex.gz
+*.synctex.gz(busy)
+*.run.xml
+*.blg
+*.bbl
+
