@@ -19,7 +19,7 @@ void initPcbs() {
  * @param p Puntatore del PCB da inserire.
 */
 void freePcb(pcb_t *p) {
-    insertProcQ(&pcbFree_h, p);
+    list_add(&p->p_list, &pcbFree_h);
 }
 
 /**
@@ -47,10 +47,13 @@ static void _initPcb(pcb_t *pcb) {
  * @return L'elemento rimosso. NULL se la lista dei PCB liberi è vuota.
 */
 pcb_t *allocPcb() {
-    if (emptyProcQ(&pcbFree_h)) {
+    if (list_empty(&pcbFree_h)) {
         return NULL;
     } else {
-        pcb_t *out = removeProcQ(&pcbFree_h);
+        // Rimozione in testa
+        pcb_t *out = container_of(pcbFree_h.next, pcb_t, p_list);
+        list_del(&out->p_list);
+
         _initPcb(out);
         
         return out;
