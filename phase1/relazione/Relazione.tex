@@ -29,7 +29,7 @@ sorting=none
         \vspace*{1.5cm}
             
         \Huge
-        \textbf{PandOS Plus} \\
+        \textbf{PandOS}\texttt{+} \\
         \LARGE
         Fase 1
                         
@@ -86,28 +86,27 @@ sorting=none
 \newpage
 
 \section{Introduzione}
-La prima fase del progetto \texttt{PandOS+} consiste nell'implementazione del livello 2 dell'architettura di astrazione proposta da Dijkstra.\\
+La prima fase del progetto \texttt{PandOS+} consiste nell'implementazione del livello 2 dell'architettura di astrazione di un sistema operativo proposta da Dijkstra.\\
 In particolare è necessario implementare le strutture dati per la gestione di PCB e semafori.
 
 \section{Gestione di PCB}
-Tutto secondo le specifiche. Grazie. Ciao.
+La gestione dei PCB è stata implementata secondo le specifiche proposte. \\
+L'unico aspetto per cui è stata fatta una scelta particolare è la gestione della lista dei PCB liberi, per la quale è stata adottata una struttura dati di tipo stack con politica LIFO.
+Tale scelta è stata fatta ipotizzando che nel processore sia presente un meccanismo di caching della memoria, in questo modo quando un processo termina, 
+il relativo PCB sarà il primo ad essere selezionato per istanziare un nuovo processo, aumentando la possibilità di una cache hit.
 
 \section{Gestione semafori}
 \subsection{Lista dei semafori liberi}
-La lista dei semafori liberi è stata implementata utilizzando una stack con politica FIFO. \\
-Tale scelta è stata fatta ipotizzando che nel processore sia presente un meccanismo di cache della memoria che mantenga salvati gli indirizzi più recenti. 
-In questo modo, nel momento in cui un semaforo viene disimpiegato, 
-lo stesso sarà il primo ad essere estratto se successivamente fosse necessario istanziare un semaforo, aumentando le possibilità di trovarlo all'interno della cache.
+La lista dei semafori liberi è stata implementata con lo stesso approccio adottato precedentemente, utilizzando una stack con politica LIFO. \\
+Anche in questo caso, l'obiettivo è quello di aumentare le probabilità di trovare in cache un semaforo da inizializzare a seguito del disimpiego di un altro.
 
 \subsection{Lista dei semafori attivi}
 La lista dei semafori liberi (ASL) viene gestita utilizzando una lista ordinata rispetto alla chiave del semaforo come suggerito dallo \textit{Student Guide} \cite{1}. \\
-Poiché si utilizzano liste bidirezionali, è stata realizzata una variazione rispetto all'implementazione proposta che non utilizza due nodi ausiliari ma 
-esegue un controllo per gestire il caso particolare in cui l'inserimento debba avvenire in coda.\\
-L'implementazione con lista ordinata permette di ottenere una soluzione più efficiente nella ricerca del semaforo attivo, riducendo il tempo di ricerca dei semafori attivi.
-\subsubsection{Possibili alternative}
-Coso che memorizza il mezzo
+Rispetto all'implementazione suggerita, è stata realizzata una variazione che non utilizza due nodi ausiliari ma esegue un controllo per gestire il caso particolare in cui l'inserimento debba avvenire in coda.\\
+L'implementazione con lista ordinata permette di ottenere una soluzione più efficiente nella ricerca del semaforo attivo, riducendo il tempo di ricerca.
 
 \newpage
 \printbibliography[title={Bibliografia}]
 
 \end{document}
+ 
