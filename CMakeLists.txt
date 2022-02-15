@@ -4,12 +4,14 @@
 #
 cmake_minimum_required(VERSION 3.3)
 project(
-	PandosPlus
-	VERSION 0.2
+	PandOS+
+	VERSION 1.0
 	LANGUAGES C ASM
 )
 
+# Implementa correttamente lo __start() (punto di entrata del programma)
 add_library(crtso STATIC ${UMPS_SRC}/crtso.S)
+# Libreria di supporto con istruzioni assembly richiamabili dal C
 add_library(libumps STATIC ${UMPS_SRC}/libumps.S)
 
 include_directories("lib")
@@ -18,6 +20,7 @@ add_subdirectory("phase1")
 add_subdirectory("phase1/test")
 
 # Esegue umps3-elf2umps
+# Converte i file oggetto ELF prodotti dalla cross-compilazione in file oggetto riconosciuti da umps3
 add_custom_target(
 	kernel.core.umps ALL
 	COMMAND umps3-elf2umps -k ${PROJECT_BINARY_DIR}/kernel
