@@ -44,7 +44,7 @@ static void _addActiveSemaphore(semd_t *new_sem) {
         }
     }
 
-    // Nel caso in cui si raggiunga la fine della lista senza che avvenga l'inserimento
+    // Nel caso in cui si raggiunga la fine della lista senza che avvenga l'inserimento o se la lista è vuota
     if (inserted == FALSE) {
         list_add_tail(&new_sem->s_link, &semd_h);
     }

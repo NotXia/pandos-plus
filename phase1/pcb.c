@@ -120,7 +120,7 @@ pcb_t *removeProcQ(struct list_head *head) {
  * @brief Rimuove il PCB dalla coda dei processi specificata e lo restituisce.
  * @param head Puntatore alla testa della coda.
  * @param p Puntatore del PCB da rimuovere dalla coda.
- * @return Il PCB rimosso. NULL se la coda è vuota.
+ * @return Il PCB rimosso. NULL se la coda è vuota o se il PCB non appartiene alla coda indicata.
 */
 pcb_t *outProcQ(struct list_head *head, pcb_t *p) {
     pcb_t *pos;
