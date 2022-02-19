@@ -1,0 +1,113 @@
+\documentclass[11pt]{article}
+\usepackage{algorithm2e}
+\usepackage[italian]{babel}
+\usepackage[document]{ragged2e}
+\usepackage{amsfonts, amssymb, amsmath}
+\usepackage{cancel}
+\usepackage{float}
+\usepackage{mathtools}
+\usepackage[margin=3cm]{geometry}
+\usepackage{subfig}
+\usepackage{mwe}
+\usepackage{hyperref}
+
+\usepackage[
+backend=biber,
+sorting=none
+]{biblatex}
+\addbibresource{bibliografia.bib}
+
+\tolerance=1
+\emergencystretch=\maxdimen
+\hyphenpenalty=10000
+\hbadness=10000
+
+\begin{document}
+\graphicspath{ {./img/} }
+\begin{titlepage}
+    \begin{center}
+        \vspace*{1.5cm}
+            
+        \Huge
+        \textbf{PandOS}\texttt{+} \\
+        \LARGE
+        Fase 1
+                        
+        \vspace{2.0cm}
+          
+        \begin{minipage}[t]{0.47\textwidth}
+        \begin{center}
+        	{\large{\bf Cheikh Ibrahim $\cdot$ Zaid}}\\
+			{\large Matricola: \texttt{0000974909}}
+        \end{center}
+
+		\end{minipage}
+		\hfill
+		\begin{minipage}[t]{0.47\textwidth}\raggedleft
+		\begin{center}
+        	{\large{\bf Lee $\cdot$ Qun Hao Henry}}\\
+			{\large Matricola: \texttt{0000990259}}
+        \end{center}
+		\end{minipage}
+
+        \vspace{1cm}
+
+        \begin{minipage}[t]{0.47\textwidth}
+            \begin{center}
+                {\large{\bf Xia $\cdot$ Tian Cheng}}\\
+                {\large Matricola: \texttt{0000975129}}
+            \end{center}
+    
+            \end{minipage}
+            \hfill
+            \begin{minipage}[t]{0.47\textwidth}\raggedleft
+            \begin{center}
+                {\large{\bf Paris $\cdot$ Manuel}}\\
+                {\large Matricola: \texttt{0000997526}}
+            \end{center}
+            \end{minipage}  
+            
+        \vspace{6cm}
+            
+        Anno	 accademico\\
+        $2021 - 2022$
+            
+        \vspace{0.8cm}
+            
+            
+        \Large
+        Corso di Sistemi Operativi\\
+        Alma Mater Studiorum $\cdot$ Università di Bologna\\
+            
+    \end{center}
+\end{titlepage}
+\pagebreak
+
+\newpage
+
+\section{Introduzione}
+La prima fase del progetto \texttt{PandOS+} consiste nell'implementazione del livello 2 dell'architettura astratta di un sistema operativo proposta da Dijkstra.\\
+In particolare è necessario implementare le strutture dati per la gestione di PCB e semafori.
+
+\section{Gestione di PCB}
+La gestione dei PCB è stata implementata secondo le specifiche proposte. \\
+L'unico aspetto per cui è stata fatta una scelta particolare è la gestione della lista dei PCB liberi, per la quale è stata adottata una struttura dati di tipo stack con politica LIFO.\\
+Tale decisione è stata fatta ipotizzando che nell'architettura sia presente un meccanismo di caching della memoria. In questo modo quando un processo termina, 
+il relativo PCB, che avrà maggiore probabilità di essere ancora in cache in un momento successivo, sarà il primo ad essere selezionato per istanziare un nuovo processo.
+
+\section{Gestione dei semafori}
+\subsection{Lista dei semafori liberi}
+La lista dei semafori liberi è stata implementata con lo stesso approccio adottato precedentemente, utilizzando una stack con politica LIFO. \\
+Anche in questo caso, l'obiettivo è quello di aumentare le probabilità di una cache hit, inizializzando in modo più rapido un semaforo nuovo a seguito del disimpiego di un altro.
+
+\subsection{Lista dei semafori attivi}
+La lista dei semafori liberi (ASL) viene gestita utilizzando una lista ordinata rispetto alla chiave del semaforo, come proposto dallo \textit{Student Guide} \cite{1}. \\
+Rispetto all'implementazione suggerita, è stata realizzata una variazione che non utilizza due nodi ausiliari ma esegue un controllo per gestire i casi particolari in cui l'inserimento debba avvenire in coda o con lista vuota.\\
+Il fine di questa implementazione è quello di ottenere una soluzione in grado di ridurre il tempo di ricerca del semaforo attivo, a discapito di un inserimento più lento.
+Tale approccio è accettabile se si suppone che il numero di operazioni sui semafori attivi sia maggiore rispetto alle inizializzazioni di semafori nuovi.
+
+\newpage
+\printbibliography[title={Bibliografia}]
+
+\end{document}
+ 
