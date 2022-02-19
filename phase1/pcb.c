@@ -31,13 +31,13 @@ static void _initPcb(pcb_t *pcb) {
     pcb->p_parent = NULL;
     INIT_LIST_HEAD(&pcb->p_child);
     INIT_LIST_HEAD(&pcb->p_sib);
-    pcb->p_s.entry_hi = 0;
-    pcb->p_s.cause = 0;
-    pcb->p_s.status = 0;
-    pcb->p_s.pc_epc = 0;
-    for (int i=0; i<STATE_GPR_LEN; i++) { pcb->p_s.gpr[i] = 0; }
-    pcb->p_s.hi = 0;
-    pcb->p_s.lo = 0;
+    // pcb->p_s.entry_hi = 0;
+    // pcb->p_s.cause = 0;
+    // pcb->p_s.status = 0;
+    // pcb->p_s.pc_epc = 0;
+    // for (int i=0; i<STATE_GPR_LEN; i++) { pcb->p_s.gpr[i] = 0; }
+    // pcb->p_s.hi = 0;
+    // pcb->p_s.lo = 0;
     pcb->p_time = 0; 
     pcb->p_semAdd = NULL;
 }
