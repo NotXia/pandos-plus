@@ -1,19 +1,18 @@
 #include <initial.h>
 #include <asl.h>
-#include <umps3/umps/types.h>
 #include <pandos_const.h>
+#include <pandos_types.h>
 #include <execptions.h>
 #include <interrupts.h>
 #include <scheduler.h>
 
-#define LDIT(T) ((*((cpu_t *) INTERVALTMR)) = (T) *(*((cpu_t *) TIMESCALEADDR)))
 
 /**
  * @brief Genera pid di un processo
  * @return Restituisce un pid assegnabile progressivo
 */
 int generatePid() {
-    return pid++;
+    return curr_pid++;
 }
 
 /**
@@ -48,12 +47,16 @@ static void _initSemaphores() {
 */
 static void _createFirstProcess() {
     pcb_t *first_proc = allocPcb();
+
     first_proc->p_supportStruct = NULL;
-    first_proc->p_prio = 0;
+    first_proc->p_prio = PROCESS_PRIO_LOW;
     first_proc->p_pid = generatePid();
-    /*
-        Impostare lo stato del processore
-    */
+    first_proc->p_s.entry_hi = first_proc->p_pid;
+    RAMTOP(first_proc->p_s.reg_sp);
+    first_proc->p_s.status = ALLOFF | IMON | TEBITON | IEPON
+    first_proc->p_s.pc_epc = (memaddr)test;
+    first_proc->p_s.s_t9 = (memaddr)test;
+
     return first_proc;
 }
 
