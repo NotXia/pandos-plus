@@ -8,8 +8,8 @@
 
 
 /**
- * @brief Genera pid di un processo
- * @return Restituisce un pid assegnabile progressivo
+ * @brief Genera un pid per un processo
+ * @return Restituisce un pid assegnabile
 */
 int generatePid() {
     return curr_pid++;
@@ -29,10 +29,10 @@ static void _initPassUpVector() {
 /**
  * @brief Inizializza i semafori
 */
-static void _initSemaphores() {
+static void _initDeviceSemaphores() {
     semaphore_plt = 0;
     semaphore_bus = 0;
-    for (int i = 0; i<8; i++) {
+    for (int i=0; i<8; i++) {
         semaphore_disk[i] = 0;
         semaphore_flashdrive[i] = 0;
         semaphore_network[i] = 0;
@@ -45,41 +45,35 @@ static void _initSemaphores() {
 /**
  * @brief Crea il primo processo
 */
-static void _createFirstProcess() {
+static pcb_t *_createFirstProcess() {
     pcb_t *first_proc = allocPcb();
 
     first_proc->p_supportStruct = NULL;
     first_proc->p_prio = PROCESS_PRIO_LOW;
-    first_proc->p_pid = generatePid();
-    first_proc->p_s.entry_hi = first_proc->p_pid;
+    first_proc->p_s.entry_hi = first_proc->p_pid = generatePid();
     RAMTOP(first_proc->p_s.reg_sp);
-    first_proc->p_s.status = ALLOFF | IMON | TEBITON | IEPON
-    first_proc->p_s.pc_epc = (memaddr)test;
-    first_proc->p_s.s_t9 = (memaddr)test;
+    // Kernel mode + Interrupt abilitati + PLT abilitato
+    first_proc->p_s.status = ALLOFF | IMON | TEBITON | IEPON;
+    first_proc->p_s.s_t9 = first_proc->p_s.pc_epc = (memaddr)test;
 
     return first_proc;
 }
 
-int main() {
+void main() {
     _initPassUpVector();
-
     initPcbs();
     initASL();
-
     process_count = 0;
     softblocked_count = 0;
     mkEmptyProcQ(high_readyqueue);
     mkEmptyProcQ(low_readyqueue);
-
-    curr_process = NULL;
-
-    _initSemaphores();
-
-    LDIT(100);
-
     curr_pid = 1;
+    curr_process = NULL;
+    _initDeviceSemaphores();
+    LDIT(PSECOND);
 
     pcb_t *first_proc = _createFirstProcess();
+    insertProcQ(low_readyqueue, first_proc);
 
     scheduler();
 }
