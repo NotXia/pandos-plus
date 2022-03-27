@@ -36,6 +36,7 @@ static void _initDeviceSemaphores() {
 
 /**
  * @brief Crea il primo processo
+ * @return Puntatore al PCB del processo creato
 */
 static pcb_t *_createFirstProcess() {
     pcb_t *first_proc = allocPcb();
@@ -61,8 +62,7 @@ void main() {
     _initDeviceSemaphores();
     LDIT(PSECOND);
 
-    pcb_t *first_proc = _createFirstProcess();
-    insertProcQ(low_readyqueue, first_proc);
+    insertProcQ(low_readyqueue, _createFirstProcess());
 
     scheduler();
 }
