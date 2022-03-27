@@ -2,6 +2,7 @@
 
 static pcb_t pcbFree_table[MAXPROC];
 static struct list_head pcbFree_h;
+int curr_pid = 1;
 
 /**
  * @brief Inizializza le strutture dati.
@@ -22,8 +23,17 @@ void freePcb(pcb_t *p) {
     list_add(&p->p_list, &pcbFree_h);
 }
 
+
 /**
- * @brief Imposta i campi di un PCB inizializzandoli opportunamente a 0, NULL o lista vuota.
+ * @brief Genera un pid per un processo
+ * @return Restituisce un pid assegnabile
+*/
+int _generatePid() {
+    return curr_pid++;
+}
+
+/**
+ * @brief Imposta i campi generali di un PCB inizializzandoli opportunamente.
  * @param pcb Puntatore al PCB da inizializzare.
 */
 static void _initPcb(pcb_t *pcb) {
@@ -31,19 +41,14 @@ static void _initPcb(pcb_t *pcb) {
     pcb->p_parent = NULL;
     INIT_LIST_HEAD(&pcb->p_child);
     INIT_LIST_HEAD(&pcb->p_sib);
-    // pcb->p_s.entry_hi = 0;
-    // pcb->p_s.cause = 0;
-    // pcb->p_s.status = 0;
-    // pcb->p_s.pc_epc = 0;
-    // for (int i=0; i<STATE_GPR_LEN; i++) { pcb->p_s.gpr[i] = 0; }
-    // pcb->p_s.hi = 0;
-    // pcb->p_s.lo = 0;
-    pcb->p_time = 0; 
+    pcb->p_time = 0;
     pcb->p_semAdd = NULL;
+    pcb->p_supportStruct = NULL;
+    pcb->p_s.entry_hi = pcb->p_pid = _generatePid();
 }
 
 /**
- * @brief Rimuove un elemento dalla lista dei PCB liberi e lo restituisce inizializzato.
+ * @brief Rimuove un elemento dalla lista dei PCB liberi e lo restituisce inizializzato. Vanno ancora inizializzati i parametri specifici del processo
  * @return L'elemento rimosso. NULL se la lista dei PCB liberi è vuota.
 */
 pcb_t *allocPcb() {

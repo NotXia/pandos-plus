@@ -21,9 +21,5 @@ int semaphore_network[8];
 int semaphore_printer[8];
 int semaphore_terminal[16];
 
-int curr_pid;
-
-
-int generatePid();
 
 #endif

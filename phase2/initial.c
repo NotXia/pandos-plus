@@ -8,14 +8,6 @@
 
 
 /**
- * @brief Genera un pid per un processo
- * @return Restituisce un pid assegnabile
-*/
-int generatePid() {
-    return curr_pid++;
-}
-
-/**
  * @brief Inizializza il pass up vector
 */
 static void _initPassUpVector() {
@@ -48,12 +40,10 @@ static void _initDeviceSemaphores() {
 static pcb_t *_createFirstProcess() {
     pcb_t *first_proc = allocPcb();
 
-    first_proc->p_supportStruct = NULL;
     first_proc->p_prio = PROCESS_PRIO_LOW;
-    first_proc->p_s.entry_hi = first_proc->p_pid = generatePid();
     RAMTOP(first_proc->p_s.reg_sp);
-    // Kernel mode + Interrupt abilitati + PLT abilitato
-    first_proc->p_s.status = ALLOFF | IMON | TEBITON | IEPON;
+    // Interrupt abilitati + PLT abilitato + Kernel mode
+    first_proc->p_s.status = ALLOFF | IMON | IEPON | TEBITON;
     first_proc->p_s.s_t9 = first_proc->p_s.pc_epc = (memaddr)test;
 
     return first_proc;
@@ -67,7 +57,6 @@ void main() {
     softblocked_count = 0;
     mkEmptyProcQ(high_readyqueue);
     mkEmptyProcQ(low_readyqueue);
-    curr_pid = 1;
     curr_process = NULL;
     _initDeviceSemaphores();
     LDIT(PSECOND);
