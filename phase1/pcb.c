@@ -29,7 +29,7 @@ void freePcb(pcb_t *p) {
  * @brief Genera un pid per un processo
  * @return Restituisce un pid assegnabile
 */
-int _generatePid() {
+static int _generatePid() {
     return curr_pid++;
 }
 
