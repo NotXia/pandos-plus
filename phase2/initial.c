@@ -2,7 +2,7 @@
 #include <asl.h>
 #include <pandos_const.h>
 #include <pandos_types.h>
-#include <execptions.h>
+#include <exceptions.h>
 #include <interrupts.h>
 #include <scheduler.h>
 
