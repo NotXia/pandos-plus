@@ -50,9 +50,9 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
-.vscode/settings.json
+.vscode/
 
-build
+build/
 
 # Latex
 *.toc
