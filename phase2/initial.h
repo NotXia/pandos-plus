@@ -8,8 +8,8 @@
 unsigned int process_count;
 unsigned int softblocked_count;
 
-list_head *high_readyqueue;
-list_head *low_readyqueue;
+struct list_head *high_readyqueue;
+struct list_head *low_readyqueue;
 
 pcb_t *curr_process;
 
