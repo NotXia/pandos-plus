@@ -3,22 +3,27 @@
 #include <pandos_types.h>
 #include <initial.h>
 
-#define PREV_PROCESSOR_STATE (state_t *)BIOSDATAPAGE
+#define EXCEPTION_CODE          (getCause() & GETEXECCODE)>>CAUSESHIFT
+#define PREV_PROCESSOR_STATE    ((state_t *)BIOSDATAPAGE)
+
+#define SYSTEMCALL_CODE         PREV_PROCESSOR_STATE->reg_a0
+#define PARAMETER1(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a1
+#define PARAMETER2(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a2
+#define PARAMETER3(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a3
+#define SYSTEMCALL_RETURN(ret)  PREV_PROCESSOR_STATE->reg_v0 = ret
 
 /**
- * @brief Crea un processo.
- * @param statep Stato del processo.
+ * @brief System call per crea un processo.
 */
-static void createProcess(state_t *proc_state) {
-    // Parametri
-    state_t *statep = (state_t *)proc_state->reg_a1;
-    int prio = proc_state->reg_a2;
-    support_t *supportp = (support_t *)proc_state->reg_a3;
+static void createProcess() {
+    PARAMETER1(state_t *, statep);
+    PARAMETER2(int, prio);
+    PARAMETER3(support_t *, supportp);
 
     pcb_t *new_proc = allocPcb();
 
     if (new_proc == NULL) {
-        proc_state->reg_v0 = -1;
+        SYSTEMCALL_RETURN(-1);
         return;
     }
 
@@ -28,45 +33,96 @@ static void createProcess(state_t *proc_state) {
     insertProcQ((prio == 0 ? low_readyqueue : high_readyqueue), curr_process);
     insertChild(curr_process, new_proc);
 
-    proc_state->reg_v0 = new_proc->p_pid;
+    SYSTEMCALL_RETURN(new_proc->p_pid);
 }
+
+/**
+ * @brief System call per terminare un processo.
+*/
+void termProcess() {
+    PARAMETER1(int, pid);
+
+}
+
+/**
+ * @brief System call per chiamare una P su un semaforo.
+*/
+void passeren() {
+    PARAMETER1(int *, sem);
+
+}
+
+/**
+ * @brief System call per chiamare una V su un semaforo.
+*/
+void verhogen() {
+    PARAMETER1(int *, sem);
+
+}
+
+/**
+ * @brief System call per inizializzare un'operazione di I/O.
+*/
+void doIO() {
+    PARAMETER1(int *, command_address);
+    PARAMETER2(int, command_value);
+
+}
+
+/**
+ * @brief System call che restituisce il tempo di CPU del processo.
+*/
+void getCPUTime() {
+
+}
+
+/**
+ * @brief System call per bloccare il processo in attesa dell'interval timer.
+*/
+void clockWait() {
+
+}
+
+/**
+ * @brief System call che restituisce il puntatore alla struttura di supporto del processo.
+*/
+void getSupportPtr() {
+
+}
+
+/**
+ * @brief System call che restituisce il pid del processo o del genitore.
+*/
+void getProcessId() {
+    PARAMETER1(int, parent);
+
+}
+
+/**
+ * @brief System call per rilasciare la CPU e tornare ready.
+*/
+void yield() {
+
+}
+
 
 /**
  * @brief Gestore delle system call.
 */
 static void systemcallHandler() {
-    state_t *proc_state = PREV_PROCESSOR_STATE;
-    
-    switch (proc_state->reg_a0) {
-        case(CREATEPROCESS):
-            createProcess(proc_state);
-            break;
+    switch (SYSTEMCALL_CODE) {
+        case(CREATEPROCESS): createProcess(); break;
+        case(TERMPROCESS):   termProcess();   break;
+        case(PASSEREN):      passeren();      break;
+        case(VERHOGEN):      verhogen();      break;
+        case(DOIO):          doIO();          break;
+        case(GETTIME):       getCPUTime();    break;
+        case(CLOCKWAIT):     clockWait();     break;
+        case(GETSUPPORTPTR): getSupportPtr(); break;
+        case(GETPROCESSID):  getProcessId();  break;
+        case(YIELD):         yield();         break;
 
-        case(TERMPROCESS):
-            break;
-
-        case(PASSEREN):
-            break;
-
-        case(VERHOGEN):
-            break;
-
-        case(DOIO):
-            break;
-
-        case(GETTIME):
-            break;
-
-        case(CLOCKWAIT):
-            break;
-
-        case(GETSUPPORTPTR):
-            break;
-
-        case(GETPROCESSID):
-            break;
-
-        case(YIELD):
+        default:
             break;
     }
 }
@@ -75,9 +131,7 @@ static void systemcallHandler() {
  * @brief Gestore delle eccezioni.
 */
 void exceptionHandler() {
-    int exception_code = (getCause() & GETEXECCODE)>>CAUSESHIFT;
-
-    switch (exception_code) {
+    switch (EXCEPTION_CODE) {
         // Interrupts
         case(0):
             break;
