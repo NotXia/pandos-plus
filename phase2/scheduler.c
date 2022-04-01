@@ -12,6 +12,12 @@ pcb_t *to_ignore = NULL; // Per gestire i processi che chiamano yield
 static void _getNextProcess(pcb_t *next_pcb, int *prio) {
     pcb_t *next_proc = NULL;
 
+    /*
+        Prova ad estrare un processo ad alta priorità
+        Estrae se:
+        - il processo in testa è diverso da quello da ignorare (yield)
+        - la coda dei processi a bassa priorità è vuota e quindi necessariamente seleziona un processo ad alta priorità (anche se da ignorare)
+    */
     if (!emptyProcQ(high_readyqueue)) {
         if (headProcQ(high_readyqueue) != to_ignore || emptyProcQ(low_readyqueue)) {
             next_proc = removeProcQ(high_readyqueue);
@@ -19,6 +25,7 @@ static void _getNextProcess(pcb_t *next_pcb, int *prio) {
         }
     }
 
+    // Prova ad estrare un processo a bassa priorità se non è riuscita ad estrarne uno ad alta
     if (next_proc == NULL) {
         next_proc = removeProcQ(low_readyqueue);
         *prio = PROCESS_PRIO_LOW;
