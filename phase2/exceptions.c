@@ -30,7 +30,7 @@ static void createProcess() {
     new_proc->p_s = *statep;
     new_proc->p_prio = (prio == 0 ? PROCESS_PRIO_LOW : PROCESS_PRIO_HIGH);
     new_proc->p_supportStruct = supportp;
-    insertProcQ((prio == 0 ? low_readyqueue : high_readyqueue), curr_process);
+    insertProcQ((prio == 0 ? low_readyqueue : high_readyqueue), new_proc);
     insertChild(curr_process, new_proc);
 
     SYSTEMCALL_RETURN(new_proc->p_pid);
