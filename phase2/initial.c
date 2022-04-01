@@ -45,7 +45,7 @@ static pcb_t *_createFirstProcess() {
     RAMTOP(first_proc->p_s.reg_sp);
     // Interrupt abilitati + PLT abilitato + Kernel mode
     first_proc->p_s.status = ALLOFF | IMON | IEPON | TEBITON;
-    first_proc->p_s.s_t9 = first_proc->p_s.pc_epc = (memaddr)test;
+    first_proc->p_s.reg_t9 = first_proc->p_s.pc_epc = (memaddr)test;
 
     return first_proc;
 }
