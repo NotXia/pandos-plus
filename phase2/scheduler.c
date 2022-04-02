@@ -2,7 +2,7 @@
 #include <initial.h>
 #include <umps3/umps/libumps.h>
 
-pcb_t *to_ignore = NULL; // Per gestire i processi che chiamano yield
+to_ignore = NULL; // Per gestire i processi che chiamano yield
 
 /**
  * @brief Seleziona il prossimo processo da mandare avanti.

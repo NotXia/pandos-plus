@@ -2,6 +2,8 @@
 #include <umps3/umps/libumps.h>
 #include <pandos_types.h>
 #include <initial.h>
+#include <asl.h>
+#include <scheduler.h>
 
 #define EXCEPTION_CODE          (getCause() & GETEXECCODE)>>CAUSESHIFT
 #define PREV_PROCESSOR_STATE    ((state_t *)BIOSDATAPAGE)
@@ -11,6 +13,17 @@
 #define PARAMETER2(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a2
 #define PARAMETER3(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a3
 #define SYSTEMCALL_RETURN(ret)  PREV_PROCESSOR_STATE->reg_v0 = ret
+
+#define GET_READY_QUEUE(prio)   (prio == PROCESS_PRIO_LOW ? low_readyqueue : high_readyqueue)
+
+/**
+ * @brief Blocca il processo corrente.
+*/
+static void blockCurrentProcess() {
+    curr_process->p_s = *PREV_PROCESSOR_STATE;
+    // TODO aggiornare tempo CPU
+
+}
 
 /**
  * @brief System call per crea un processo.
@@ -30,40 +43,105 @@ static void createProcess() {
     new_proc->p_s = *statep;
     new_proc->p_prio = (prio == 0 ? PROCESS_PRIO_LOW : PROCESS_PRIO_HIGH);
     new_proc->p_supportStruct = supportp;
-    insertProcQ((prio == 0 ? low_readyqueue : high_readyqueue), new_proc);
+    insertProcQ(GET_READY_QUEUE(prio), new_proc);
     insertChild(curr_process, new_proc);
 
     SYSTEMCALL_RETURN(new_proc->p_pid);
 }
 
 /**
+ * @brief Uccide un processo e tutti i suoi figli.
+ * @param process Puntatore al processo da uccidere.
+*/
+static void killProcess(pcb_t *process) {
+    process->p_parent = NULL;
+    outChild(process);
+
+    process_count--;
+    if (process->p_semAdd != NULL) {
+        // TODO Non va bene, aggiustare dopo aver fatto gli interrupt
+        softblocked_count--;
+    }
+
+    if (process->p_semAdd == semaphore_bus || process->p_semAdd == semaphore_plt) {
+        outBlocked(process);
+    }
+
+    pcb_t *child;
+    while ((child = removeChild(process)) != NULL) {
+        killProcess(child);
+    }
+
+    freePcb(process);
+}
+
+/**
  * @brief System call per terminare un processo.
 */
-void termProcess() {
+static void termProcess() {
     PARAMETER1(int, pid);
+    
+    pcb_t *process_to_kill = pid == 0 ? curr_process : getProcessByPid(pid);
+    killProcess(process_to_kill);
+    scheduler();
+}
 
+/**
+ * @brief Chiama la P su un semaforo.
+ * @param sem Puntatore del semaforo.
+*/
+static void P(int *sem) {
+    if (*sem == 0) {
+        if (insertBlocked(sem, curr_process)) { PANIC(); }
+        blockCurrentProcess();
+        scheduler();
+    }
+    else {
+        *sem = 0;
+    }
+}
+
+/**
+ * @brief Chiama la V su un semaforo.
+ * @param sem Puntatore del semaforo.
+*/
+static void V(int *sem) {
+    if (*sem == 0) {
+        pcb_t *ready_proc = removeBlocked(sem);
+
+        if (ready_proc == NULL) {
+            *sem = 1;
+        }
+        else { // Sblocca un processo bloccato sullo stesso semaforo
+            insertProcQ(GET_READY_QUEUE(ready_proc->p_prio), ready_proc);
+        }
+    }
+    else {
+        // Non dovrebbe succedere
+        PANIC();
+    }
 }
 
 /**
  * @brief System call per chiamare una P su un semaforo.
 */
-void passeren() {
+static void passeren() {
     PARAMETER1(int *, sem);
-
+    P(sem);
 }
 
 /**
  * @brief System call per chiamare una V su un semaforo.
 */
-void verhogen() {
+static void verhogen() {
     PARAMETER1(int *, sem);
-
+    V(sem);
 }
 
 /**
  * @brief System call per inizializzare un'operazione di I/O.
 */
-void doIO() {
+static void doIO() {
     PARAMETER1(int *, command_address);
     PARAMETER2(int, command_value);
 
@@ -72,37 +150,44 @@ void doIO() {
 /**
  * @brief System call che restituisce il tempo di CPU del processo.
 */
-void getCPUTime() {
-
+static void getCPUTime() {
+    SYSTEMCALL_RETURN(curr_process->p_time);
 }
 
 /**
  * @brief System call per bloccare il processo in attesa dell'interval timer.
 */
-void clockWait() {
-
+static void clockWait() {
+    P(semaphore_bus);
 }
 
 /**
  * @brief System call che restituisce il puntatore alla struttura di supporto del processo.
 */
-void getSupportPtr() {
-
+static void getSupportPtr() {
+    SYSTEMCALL_RETURN(curr_process->p_supportStruct);
 }
 
 /**
  * @brief System call che restituisce il pid del processo o del genitore.
 */
-void getProcessId() {
+static void getProcessId() {
     PARAMETER1(int, parent);
 
+    if (parent == 0) {
+        SYSTEMCALL_RETURN(curr_process->p_pid);
+    }
+    else {
+        SYSTEMCALL_RETURN(curr_process->p_parent->p_pid);
+    }
 }
 
 /**
  * @brief System call per rilasciare la CPU e tornare ready.
 */
-void yield() {
-
+static void yield() {
+    insertProcQ(GET_READY_QUEUE(curr_process->p_prio), curr_process);
+    process_to_skip = curr_process;
 }
 
 
@@ -110,6 +195,8 @@ void yield() {
  * @brief Gestore delle system call.
 */
 static void systemcallHandler() {
+    curr_process->p_s.pc_epc += 4;
+
     switch (SYSTEMCALL_CODE) {
         case(CREATEPROCESS): createProcess(); break;
         case(TERMPROCESS):   termProcess();   break;
