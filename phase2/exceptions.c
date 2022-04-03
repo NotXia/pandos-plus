@@ -227,10 +227,27 @@ static void systemcallHandler() {
         case(YIELD):         yield();         break;
 
         default:
+            PREV_PROCESSOR_STATE->cause = (PREV_PROCESSOR_STATE->cause & 0xFFFFFF83) | 0x28; // Reserved instruction (genera trap)
+            _passUpOrDieHandler(GENERALEXCEPT);
             break;
     }
 
     LDST(PREV_PROCESSOR_STATE);
+}
+
+/**
+ * @brief Gestore del pass up or die.
+*/
+static void _passUpOrDieHandler(int index) {
+    if (curr_process->p_supportStruct == NULL) {
+        killProcess(curr_process);
+        scheduler();
+    }
+    else {
+        curr_process->p_supportStruct->sup_exceptState[index] = *PREV_PROCESSOR_STATE;
+        context_t ctx = curr_process->p_supportStruct->sup_exceptContext[index];
+        LDCXT(ctx.stackPtr, ctx.status, ctx.pc);
+    }
 }
 
 /**
@@ -246,6 +263,7 @@ void exceptionHandler() {
         case(1): 
         case(2):
         case(3):
+            _passUpOrDieHandler(PGFAULTEXCEPT);
             break;
 
         // Program traps
@@ -257,6 +275,7 @@ void exceptionHandler() {
         case(10):
         case(11):
         case(12):
+            _passUpOrDieHandler(GENERALEXCEPT);
             break;
 
         // Systemcall
