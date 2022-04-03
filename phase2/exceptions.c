@@ -54,7 +54,6 @@ static void createProcess() {
  * @param process Puntatore al processo da uccidere.
 */
 static void killProcess(pcb_t *process) {
-    process->p_parent = NULL;
     outChild(process);
 
     process_count--;
@@ -64,6 +63,7 @@ static void killProcess(pcb_t *process) {
     }
 
     if (process->p_semAdd == semaphore_bus || process->p_semAdd == semaphore_plt) {
+        // TODO Aggiustare
         outBlocked(process);
     }
 
@@ -80,10 +80,17 @@ static void killProcess(pcb_t *process) {
 */
 static void termProcess() {
     PARAMETER1(int, pid);
-    
-    pcb_t *process_to_kill = pid == 0 ? curr_process : getProcessByPid(pid);
-    killProcess(process_to_kill);
-    scheduler();
+
+    if (pid == 0) {
+        killProcess(curr_process);
+        scheduler();
+    }
+    else {
+        pcb_t *process_to_kill = getProcessByPid(pid);
+        if (process_to_kill != NULL) {
+            killProcess(process_to_kill);
+        }
+    }    
 }
 
 /**
@@ -145,6 +152,10 @@ static void doIO() {
     PARAMETER1(int *, command_address);
     PARAMETER2(int, command_value);
 
+    /*
+        Forse basta vedere che multiplo di 0x10000054 è l'indirizzo
+    */
+
 }
 
 /**
@@ -178,7 +189,12 @@ static void getProcessId() {
         SYSTEMCALL_RETURN(curr_process->p_pid);
     }
     else {
-        SYSTEMCALL_RETURN(curr_process->p_parent->p_pid);
+        if (curr_process->p_parent == NULL) {
+            SYSTEMCALL_RETURN(0);
+        }
+        else {
+            SYSTEMCALL_RETURN(curr_process->p_parent->p_pid);
+        }
     }
 }
 
@@ -195,7 +211,8 @@ static void yield() {
  * @brief Gestore delle system call.
 */
 static void systemcallHandler() {
-    curr_process->p_s.pc_epc += 4;
+    PREV_PROCESSOR_STATE->pc_epc += WORDLEN;
+    // curr_process->p_s.pc_epc += 4;
 
     switch (SYSTEMCALL_CODE) {
         case(CREATEPROCESS): createProcess(); break;
@@ -212,6 +229,8 @@ static void systemcallHandler() {
         default:
             break;
     }
+
+    LDST(PREV_PROCESSOR_STATE);
 }
 
 /**

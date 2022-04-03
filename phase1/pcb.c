@@ -2,17 +2,20 @@
 
 static pcb_t pcbFree_table[MAXPROC];
 static struct list_head pcbFree_h;
-int curr_pid;
+static int curr_pid;
+static struct list_head pid_list_h;
+
 
 /**
  * @brief Inizializza le strutture dati.
 */
 void initPcbs() {
     INIT_LIST_HEAD(&pcbFree_h);
+    INIT_LIST_HEAD(&pid_list_h);
     curr_pid = 1;
 
     for (int i=MAXPROC-1; i>=0; i--) {
-        freePcb(&pcbFree_table[i]);
+        list_add(&pcbFree_table[i].p_list, &pcbFree_h);
     }
 }
 
@@ -22,6 +25,7 @@ void initPcbs() {
 */
 void freePcb(pcb_t *p) {
     list_add(&p->p_list, &pcbFree_h);
+    list_del(&p->pid_list);
 }
 
 
@@ -48,6 +52,25 @@ static void _initPcb(pcb_t *pcb) {
     pcb->p_s.entry_hi = pcb->p_pid = _generatePid();
 }
 
+static void _addPid(pcb_t *p) {
+    int inserted = FALSE;
+    pcb_t *iter;
+
+    // Inserimento per mantenere la lista ordinata in senso crescente per pid
+    list_for_each_entry(iter, &pid_list_h, pid_list) {
+        if (p->p_pid < iter->p_pid) {
+            __list_add(&p->pid_list, iter->pid_list.prev, &iter->pid_list);
+            inserted = TRUE;
+            break;
+        }
+    }
+
+    // Nel caso in cui si raggiunga la fine della lista senza che avvenga l'inserimento o se la lista è vuota
+    if (inserted == FALSE) {
+        list_add_tail(&p->pid_list, &pid_list_h);
+    }
+}
+
 /**
  * @brief Rimuove un elemento dalla lista dei PCB liberi e lo restituisce inizializzato. Vanno ancora inizializzati i parametri specifici del processo
  * @return L'elemento rimosso. NULL se la lista dei PCB liberi è vuota.
@@ -61,7 +84,8 @@ pcb_t *allocPcb() {
         list_del(&out->p_list);
 
         _initPcb(out);
-        
+        _addPid(out);
+
         return out;
     }
 }
@@ -201,7 +225,17 @@ pcb_t *outChild(pcb_t *p) {
     }
 }
 
-
+/**
+ * @brief Cerca il processo dato un pid.
+ * @param pid Pid del processo da cercare.
+ * @return Il puntatore al processo. NULL se non esiste.
+*/
 pcb_t *getProcessByPid(int pid) {
+    pcb_t *iter;
 
+    // Inserimento per mantenere la lista ordinata in senso crescente per pid
+    list_for_each_entry(iter, &pid_list_h, pid_list) {
+        if (iter->p_pid == pid) { return iter; }
+        if (iter->p_pid > pid) { return NULL; }
+    }
 }
