@@ -206,12 +206,22 @@ static void yield() {
     process_to_skip = curr_process;
 }
 
+/**
+ * @brief Genera una trap.
+*/
+static void _generateTrap() {
+    PREV_PROCESSOR_STATE->cause = (PREV_PROCESSOR_STATE->cause & 0xFFFFFF83) | 0x28; // Reserved instruction
+    // _passUpOrDieHandler(GENERALEXCEPT);
+}
 
 /**
  * @brief Gestore delle system call.
 */
 static void systemcallHandler() {
-    // TODO Controllare permessi (kernel mode)
+    // Controllo permessi (kernel mode)
+    if (SYSTEMCALL_CODE < 0 && PREV_PROCESSOR_STATE->status & KUC_BIT != 0) {
+        _generateTrap();
+    }
 
     PREV_PROCESSOR_STATE->pc_epc += WORDLEN;
     // curr_process->p_s.pc_epc += 4;
@@ -229,8 +239,7 @@ static void systemcallHandler() {
         case(YIELD):         yield();         break;
 
         default:
-            PREV_PROCESSOR_STATE->cause = (PREV_PROCESSOR_STATE->cause & 0xFFFFFF83) | 0x28; // Reserved instruction (genera trap)
-            // _passUpOrDieHandler(GENERALEXCEPT);
+            _generateTrap();
             break;
     }
 
