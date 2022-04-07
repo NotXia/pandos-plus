@@ -15,11 +15,9 @@ pcb_t *curr_process;
 
 int semaphore_plt;
 int semaphore_bus;
-int semaphore_disk[8];
-int semaphore_flashdrive[8];
-int semaphore_network[8];
-int semaphore_printer[8];
-int semaphore_terminal[16];
+int semaphore_devices[48];
 
+
+#define TERM_SEM_START_INDEX 32
 
 #endif

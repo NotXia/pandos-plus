@@ -4,9 +4,10 @@
 #include <initial.h>
 #include <asl.h>
 #include <scheduler.h>
+#include <umps3/umps/cp0.h>
 
-#define EXCEPTION_CODE          (getCause() & GETEXECCODE)>>CAUSESHIFT
 #define PREV_PROCESSOR_STATE    ((state_t *)BIOSDATAPAGE)
+#define EXCEPTION_CODE          CAUSE_GET_EXCCODE(PREV_PROCESSOR_STATE->cause)
 
 #define SYSTEMCALL_CODE         PREV_PROCESSOR_STATE->reg_a0
 #define PARAMETER1(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a1
@@ -79,7 +80,7 @@ static void killProcess(pcb_t *process) {
  * @brief System call per terminare un processo.
 */
 static void termProcess() {
-    PARAMETER1(int, pid);
+    PARAMETER1(pid_t, pid);
 
     if (pid == 0) {
         killProcess(curr_process);
@@ -124,7 +125,7 @@ static void V(int *sem) {
         }
     }
     else {
-        // Non dovrebbe succedere
+        // TODO La V è bloccante
         PANIC();
     }
 }
@@ -152,10 +153,25 @@ static void doIO() {
     PARAMETER1(int *, command_address);
     PARAMETER2(int, command_value);
 
-    /*
-        Forse basta vedere che multiplo di 0x10000054 è l'indirizzo
-    */
+    *command_address = command_value;
+    
+    int sem_index;
+    if (*command_address >= TERM0ADDR) { // Terminale
+        int selector = (int)command_address & 0x8;
+        int dev_register_address;
+        int offset = 0;
 
+        if (selector == 8) { dev_register_address = command_address - 0x4; } // Ricezione
+        else { dev_register_address = command_address - 0xC; offset=8; } // Trasmissione
+
+        sem_index = ((dev_register_address - TERM0ADDR) / DEVREG_SIZE) + TERM_SEM_START_INDEX+ + offset;
+    }
+    else { // Altri device
+        int dev_register_address = command_address - 0x4;
+        sem_index = (dev_register_address - DEVREG_START) / DEVREG_SIZE;
+    }
+
+    P(&semaphore_devices[sem_index]);
 }
 
 /**
@@ -211,6 +227,8 @@ static void yield() {
  * @brief Gestore delle system call.
 */
 static void systemcallHandler() {
+    // TODO Controllare permessi (kernel mode)
+
     PREV_PROCESSOR_STATE->pc_epc += WORDLEN;
     // curr_process->p_s.pc_epc += 4;
 
@@ -228,7 +246,7 @@ static void systemcallHandler() {
 
         default:
             PREV_PROCESSOR_STATE->cause = (PREV_PROCESSOR_STATE->cause & 0xFFFFFF83) | 0x28; // Reserved instruction (genera trap)
-            _passUpOrDieHandler(GENERALEXCEPT);
+            // _passUpOrDieHandler(GENERALEXCEPT);
             break;
     }
 

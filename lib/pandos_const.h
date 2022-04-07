@@ -171,4 +171,9 @@
 /* End of Mikeyg constants */
 
 
+#define TERM0ADDR       0x10000254
+#define DEVREG_START    0x10000054
+#define DEVREG_SIZE     0x10
+
+
 #endif

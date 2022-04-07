@@ -22,16 +22,10 @@ static void _initPassUpVector() {
  * @brief Inizializza i semafori
 */
 static void _initDeviceSemaphores() {
-    semaphore_it = 0;
     semaphore_plt = 0;
     semaphore_bus = 0;
-    for (int i=0; i<8; i++) {
-        semaphore_disk[i] = 0;
-        semaphore_flashdrive[i] = 0;
-        semaphore_network[i] = 0;
-        semaphore_printer[i] = 0;
-        semaphore_terminal[i] = 0;
-        semaphore_terminal[i+8] = 0;
+    for (int i=0; i<48; i++) {
+        semaphore_devices[i] = 0;
     }
 }
 
