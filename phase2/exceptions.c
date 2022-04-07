@@ -19,7 +19,7 @@
 /**
  * @brief System call per crea un processo.
 */
-static void createProcess() {
+static void _createProcess() {
     PARAMETER1(state_t *, statep);
     PARAMETER2(int, prio);
     PARAMETER3(support_t *, supportp);
@@ -44,7 +44,7 @@ static void createProcess() {
  * @brief Uccide un processo e tutti i suoi figli.
  * @param process Puntatore al processo da uccidere.
 */
-static void killProcess(pcb_t *process) {
+static void _killProcess(pcb_t *process) {
     outChild(process);
 
     process_count--;
@@ -54,7 +54,7 @@ static void killProcess(pcb_t *process) {
 
     pcb_t *child;
     while ((child = removeChild(process)) != NULL) {
-        killProcess(child);
+        _killProcess(child);
     }
 
     freePcb(process);
@@ -63,17 +63,17 @@ static void killProcess(pcb_t *process) {
 /**
  * @brief System call per terminare un processo.
 */
-static void termProcess() {
+static void _termProcess() {
     PARAMETER1(pid_t, pid);
 
     if (pid == 0) {
-        killProcess(curr_process);
+        _killProcess(curr_process);
         scheduler();
     }
     else {
         pcb_t *process_to_kill = getProcessByPid(pid);
         if (process_to_kill != NULL) {
-            killProcess(process_to_kill);
+            _killProcess(process_to_kill);
         }
     }    
 }
@@ -117,7 +117,7 @@ static void V(int *sem) {
 /**
  * @brief System call per chiamare una P su un semaforo.
 */
-static void passeren() {
+static void _passeren() {
     PARAMETER1(int *, sem);
     P(sem);
 }
@@ -125,7 +125,7 @@ static void passeren() {
 /**
  * @brief System call per chiamare una V su un semaforo.
 */
-static void verhogen() {
+static void _verhogen() {
     PARAMETER1(int *, sem);
     V(sem);
 }
@@ -133,7 +133,7 @@ static void verhogen() {
 /**
  * @brief System call per inizializzare un'operazione di I/O.
 */
-static void doIO() {
+static void _doIO() {
     PARAMETER1(int *, command_address);
     PARAMETER2(int, command_value);
 
@@ -161,28 +161,29 @@ static void doIO() {
 /**
  * @brief System call che restituisce il tempo di CPU del processo.
 */
-static void getCPUTime() {
+static void _getCPUTime() {
+    // TODO sommare tempo in TOD
     SYSTEMCALL_RETURN(curr_process->p_time);
 }
 
 /**
  * @brief System call per bloccare il processo in attesa dell'interval timer.
 */
-static void clockWait() {
+static void _clockWait() {
     P(semaphore_it);
 }
 
 /**
  * @brief System call che restituisce il puntatore alla struttura di supporto del processo.
 */
-static void getSupportPtr() {
+static void _getSupportPtr() {
     SYSTEMCALL_RETURN(curr_process->p_supportStruct);
 }
 
 /**
  * @brief System call che restituisce il pid del processo o del genitore.
 */
-static void getProcessId() {
+static void _getProcessId() {
     PARAMETER1(int, parent);
 
     if (parent == 0) {
@@ -201,7 +202,7 @@ static void getProcessId() {
 /**
  * @brief System call per rilasciare la CPU e tornare ready.
 */
-static void yield() {
+static void _yield() {
     insertProcQ(GET_READY_QUEUE(curr_process->p_prio), curr_process);
     process_to_skip = curr_process;
 }
@@ -227,16 +228,16 @@ static void systemcallHandler() {
     // curr_process->p_s.pc_epc += 4;
 
     switch (SYSTEMCALL_CODE) {
-        case(CREATEPROCESS): createProcess(); break;
-        case(TERMPROCESS):   termProcess();   break;
-        case(PASSEREN):      passeren();      break;
-        case(VERHOGEN):      verhogen();      break;
-        case(DOIO):          doIO();          break;
-        case(GETTIME):       getCPUTime();    break;
-        case(CLOCKWAIT):     clockWait();     break;
-        case(GETSUPPORTPTR): getSupportPtr(); break;
-        case(GETPROCESSID):  getProcessId();  break;
-        case(YIELD):         yield();         break;
+        case(CREATEPROCESS): _createProcess(); break;
+        case(TERMPROCESS):   _termProcess();   break;
+        case(PASSEREN):      _passeren();      break;
+        case(VERHOGEN):      _verhogen();      break;
+        case(DOIO):          _doIO();          break;
+        case(GETTIME):       _getCPUTime();    break;
+        case(CLOCKWAIT):     _clockWait();     break;
+        case(GETSUPPORTPTR): _getSupportPtr(); break;
+        case(GETPROCESSID):  _getProcessId();  break;
+        case(YIELD):         _yield();         break;
 
         default:
             _generateTrap();
@@ -251,7 +252,7 @@ static void systemcallHandler() {
 */
 static void _passUpOrDieHandler(int index) {
     if (curr_process->p_supportStruct == NULL) {
-        killProcess(curr_process);
+        _killProcess(curr_process);
         scheduler();
     }
     else {
