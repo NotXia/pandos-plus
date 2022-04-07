@@ -45,8 +45,8 @@ static pcb_t *_createFirstProcess() {
 }
 
 /**
- * @brief Indica se un processo è soft-blocked (quindi bloccato su un qualunque device)
- * @param p Puntatore al PCB del processo da controllare
+ * @brief Indica se un processo è soft-blocked (quindi bloccato su un qualunque device).
+ * @param p Puntatore al PCB del processo da controllare.
  * @return TRUE se è soft-blocked, FALSE altrimenti.
 */
 int isSoftBlocked(pcb_t *p) {
@@ -57,6 +57,37 @@ int isSoftBlocked(pcb_t *p) {
 
     return FALSE;
 }
+
+/**
+ * @brief Restituisce il semaforo associato ad un dispositivo di I/O ricercato per indirizzo del campo command nel device register.
+ * @param address indirizzo del campo command nel device register interessato.
+ * @return Puntatore al semaforo.
+*/
+int *getIODeviceSemaphore(int address) {
+    /* A partire dall'indirizzo del campo command, si calcola l'indirizzo dell'inizio del device register da cui si ricava l'indice del semaforo */
+    int sem_index;
+    int dev_register_address;
+    int offset = 0;
+
+    if (address >= TERM0ADDR) { // Terminale
+        // Per i terminali i due registri command distano 2 word e quindi la loro distanza è di 0x8 (0b1000)
+        // Quindi si possono differenziare tra loro valutando il valore del 4° bit
+        if ((address & 0b1000) == 0b1000) { // Ricezione
+            dev_register_address = address - 0x4; 
+        } 
+        else { // Trasmissione
+            dev_register_address = address - 0xC; 
+            offset = 8;
+        }
+    }
+    else { // Altri device
+        dev_register_address = address - 0x4;
+    }
+
+    sem_index = ((dev_register_address - TERM0ADDR) / DEVREG_SIZE) + offset;
+    return &semaphore_devices[sem_index];
+}
+
 
 void main() {
     _initPassUpVector();

@@ -139,23 +139,8 @@ static void _doIO() {
 
     *command_address = command_value;
     
-    int sem_index;
-    if (*command_address >= TERM0ADDR) { // Terminale
-        int selector = (int)command_address & 0x8;
-        int dev_register_address;
-        int offset = 0;
-
-        if (selector == 8) { dev_register_address = command_address - 0x4; } // Ricezione
-        else { dev_register_address = command_address - 0xC; offset=8; } // Trasmissione
-
-        sem_index = ((dev_register_address - TERM0ADDR) / DEVREG_SIZE) + TERM_SEM_START_INDEX+ + offset;
-    }
-    else { // Altri device
-        int dev_register_address = command_address - 0x4;
-        sem_index = (dev_register_address - DEVREG_START) / DEVREG_SIZE;
-    }
-
-    P(&semaphore_devices[sem_index]);
+    int *dev_semaphore = getIODeviceSemaphore((int)command_address);
+    P(dev_semaphore);
 }
 
 /**

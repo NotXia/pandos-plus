@@ -23,5 +23,6 @@ int semaphore_devices[48];
 #define TOTAL_IO_DEVICES 48
 
 int isSoftBlocked(pcb_t *p);
+int *getIODeviceSemaphore(int address);
 
 #endif
