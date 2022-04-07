@@ -23,7 +23,7 @@ static void _initPassUpVector() {
 */
 static void _initDeviceSemaphores() {
     semaphore_it = 0;
-    for (int i=0; i<48; i++) {
+    for (int i=0; i<TOTAL_IO_DEVICES; i++) {
         semaphore_devices[i] = 0;
     }
 }
@@ -42,6 +42,20 @@ static pcb_t *_createFirstProcess() {
     first_proc->p_s.s_t9 = first_proc->p_s.pc_epc = (memaddr)test;
 
     return first_proc;
+}
+
+/**
+ * @brief Indica se un processo è soft-blocked (quindi bloccato su un qualunque device)
+ * @param p Puntatore al PCB del processo da controllare
+ * @return TRUE se è soft-blocked, FALSE altrimenti.
+*/
+int isSoftBlocked(pcb_t *p) {
+    if (p->p_semAdd == semaphore_it) { return TRUE; }
+    for (int i=0; i<TOTAL_IO_DEVICES; i++) {
+        if (p->p_semAdd == semaphore_devices[i]) { return TRUE; }
+    }
+
+    return FALSE;
 }
 
 void main() {

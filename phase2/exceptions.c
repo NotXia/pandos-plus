@@ -15,16 +15,6 @@
 #define PARAMETER3(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a3
 #define SYSTEMCALL_RETURN(ret)  PREV_PROCESSOR_STATE->reg_v0 = ret
 
-#define GET_READY_QUEUE(prio)   (prio == PROCESS_PRIO_LOW ? low_readyqueue : high_readyqueue)
-
-/**
- * @brief Blocca il processo corrente.
-*/
-static void blockCurrentProcess() {
-    curr_process->p_s = *PREV_PROCESSOR_STATE;
-    // TODO aggiornare tempo CPU
-
-}
 
 /**
  * @brief System call per crea un processo.
@@ -58,14 +48,8 @@ static void killProcess(pcb_t *process) {
     outChild(process);
 
     process_count--;
-    if (process->p_semAdd != NULL) {
-        // TODO Non va bene, aggiustare dopo aver fatto gli interrupt
+    if (isSoftBlocked(process)) {
         softblocked_count--;
-    }
-
-    if (process->p_semAdd == semaphore_it) {
-        // TODO Aggiustare
-        outBlocked(process);
     }
 
     pcb_t *child;
@@ -101,7 +85,7 @@ static void termProcess() {
 static void P(int *sem) {
     if (*sem == 0) {
         if (insertBlocked(sem, curr_process)) { PANIC(); }
-        blockCurrentProcess();
+        setProcessBlocked(curr_process, PREV_PROCESSOR_STATE);
         scheduler();
     }
     else {
@@ -121,7 +105,7 @@ static void V(int *sem) {
             *sem = 1;
         }
         else { // Sblocca un processo bloccato sullo stesso semaforo
-            insertProcQ(GET_READY_QUEUE(ready_proc->p_prio), ready_proc);
+            setProcessReady(ready_proc);
         }
     }
     else {
