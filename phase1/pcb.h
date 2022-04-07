@@ -18,7 +18,7 @@ void insertChild(pcb_t *prnt, pcb_t *p);
 pcb_t *removeChild(pcb_t *p);
 pcb_t *outChild(pcb_t *p);
 
-pcb_t *getProcessByPid(int pid);
+pcb_t *getProcessByPid(pid_t pid);
 
 
 #endif

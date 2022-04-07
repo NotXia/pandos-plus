@@ -2,7 +2,7 @@
 
 static pcb_t pcbFree_table[MAXPROC];
 static struct list_head pcbFree_h;
-static int curr_pid;
+static pid_t curr_pid;
 static struct list_head pid_list_h;
 
 
@@ -30,10 +30,22 @@ void freePcb(pcb_t *p) {
 
 
 /**
- * @brief Genera un pid per un processo
- * @return Restituisce un pid assegnabile
+ * @brief Genera un pid per un processo.
+ * @return Restituisce un pid assegnabile.
 */
-static int _generatePid() {
+static pid_t _generatePid() {
+    // Gestione wraparound
+    if (curr_pid <= 0) { curr_pid = 1; }
+
+    // Gestione collisioni
+    int curr_greater_pid = container_of(pid_list_h.prev, pcb_t, pid_list)->p_pid; // L'ultimo elemento della lista dei pid è il più grande
+    if (curr_greater_pid >= curr_pid) { // Se minore, sicuramente non ci sono collisioni
+        while (getProcessByPid(curr_pid) != NULL) {
+            curr_pid++;
+        }
+        curr_pid--; // Per evitare il doppio incremento
+    }
+    
     return curr_pid++;
 }
 
@@ -57,9 +69,10 @@ static void _addPid(pcb_t *p) {
     pcb_t *iter;
 
     // Inserimento per mantenere la lista ordinata in senso crescente per pid
-    list_for_each_entry(iter, &pid_list_h, pid_list) {
-        if (p->p_pid < iter->p_pid) {
-            __list_add(&p->pid_list, iter->pid_list.prev, &iter->pid_list);
+    // Dato che i pid sono crescenti, si inserisce scorrendo la lista al contrario per ottimizzare
+    list_for_each_entry_reverse(iter, &pid_list_h, pid_list) {
+        if (p->p_pid >= iter->p_pid) {
+            __list_add(&p->pid_list, &iter->pid_list, iter->pid_list.next);
             inserted = TRUE;
             break;
         }
@@ -230,7 +243,7 @@ pcb_t *outChild(pcb_t *p) {
  * @param pid Pid del processo da cercare.
  * @return Il puntatore al processo. NULL se non esiste.
 */
-pcb_t *getProcessByPid(int pid) {
+pcb_t *getProcessByPid(pid_t pid) {
     pcb_t *iter;
 
     // Inserimento per mantenere la lista ordinata in senso crescente per pid
