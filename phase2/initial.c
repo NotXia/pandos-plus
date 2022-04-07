@@ -50,6 +50,8 @@ static pcb_t *_createFirstProcess() {
  * @return TRUE se è soft-blocked, FALSE altrimenti.
 */
 int isSoftBlocked(pcb_t *p) {
+    if (p->p_semAdd == NULL) { return FALSE; }
+
     if (p->p_semAdd == semaphore_it) { return TRUE; }
     for (int i=0; i<TOTAL_IO_DEVICES; i++) {
         if (p->p_semAdd == semaphore_devices[i]) { return TRUE; }
@@ -63,25 +65,25 @@ int isSoftBlocked(pcb_t *p) {
  * @param address indirizzo del campo command nel device register interessato.
  * @return Puntatore al semaforo.
 */
-int *getIODeviceSemaphore(int address) {
+int *getIODeviceSemaphore(int command_address) {
     /* A partire dall'indirizzo del campo command, si calcola l'indirizzo dell'inizio del device register da cui si ricava l'indice del semaforo */
     int sem_index;
     int dev_register_address;
     int offset = 0;
 
-    if (address >= TERM0ADDR) { // Terminale
+    if (command_address >= TERM0ADDR) { // Terminale
         // Per i terminali i due registri command distano 2 word e quindi la loro distanza è di 0x8 (0b1000)
         // Quindi si possono differenziare tra loro valutando il valore del 4° bit
-        if ((address & 0b1000) == 0b1000) { // Ricezione
-            dev_register_address = address - 0x4; 
+        if ((command_address & 0b1000) == 0b1000) { // Ricezione
+            dev_register_address = command_address - 0x4;
         } 
         else { // Trasmissione
-            dev_register_address = address - 0xC; 
+            dev_register_address = command_address - 0xC;
             offset = 8;
         }
     }
     else { // Altri device
-        dev_register_address = address - 0x4;
+        dev_register_address = command_address - 0x4;
     }
 
     sem_index = ((dev_register_address - TERM0ADDR) / DEVREG_SIZE) + offset;

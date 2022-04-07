@@ -18,8 +18,6 @@ pcb_t *curr_process;
 int semaphore_it;
 int semaphore_devices[48];
 
-
-#define TERM_SEM_START_INDEX 32
 #define TOTAL_IO_DEVICES 48
 
 int isSoftBlocked(pcb_t *p);

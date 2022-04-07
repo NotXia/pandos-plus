@@ -1,3 +1,7 @@
+/*
+    TODO Decidere se systemcall / interrupt vengono contate nel tempo CPU del processo
+*/
+
 #include <exceptions.h>
 #include <umps3/umps/libumps.h>
 #include <pandos_types.h>
@@ -84,7 +88,7 @@ static void _termProcess() {
 */
 static void P(int *sem) {
     if (*sem == 0) {
-        if (insertBlocked(sem, curr_process)) { PANIC(); }
+        if (insertBlocked(sem, curr_process)) { PANIC(); } // Non ci sono semafori disponibili
         setProcessBlocked(curr_process, PREV_PROCESSOR_STATE);
         scheduler();
     }
@@ -188,7 +192,7 @@ static void _getProcessId() {
  * @brief System call per rilasciare la CPU e tornare ready.
 */
 static void _yield() {
-    insertProcQ(GET_READY_QUEUE(curr_process->p_prio), curr_process);
+    setProcessReady(curr_process);
     process_to_skip = curr_process;
 }
 
@@ -205,7 +209,7 @@ static void _generateTrap() {
 */
 static void systemcallHandler() {
     // Controllo permessi (kernel mode)
-    if (SYSTEMCALL_CODE < 0 && PREV_PROCESSOR_STATE->status & KUC_BIT != 0) {
+    if ((SYSTEMCALL_CODE < 0) && ((PREV_PROCESSOR_STATE->status & KUC_BIT) != 0)) {
         _generateTrap();
     }
 

@@ -40,13 +40,15 @@ static pid_t _generatePid() {
     // Gestione wraparound
     if (curr_pid <= 0) { curr_pid = 1; }
 
-    // Gestione collisioni
-    int curr_greater_pid = container_of(pid_list_h.prev, pcb_t, pid_list)->p_pid; // L'ultimo elemento della lista dei pid è il più grande
-    if (curr_greater_pid >= curr_pid) { // Se minore, sicuramente non ci sono collisioni
-        while (getProcessByPid(curr_pid) != NULL) {
-            curr_pid++;
+    if (!list_empty(&pid_list_h)) {
+        /* Gestione collisioni */
+        int curr_greater_pid = container_of(pid_list_h.prev, pcb_t, pid_list)->p_pid; // L'ultimo elemento della lista dei pid è il più grande
+
+        if (curr_greater_pid >= curr_pid) { // Se minore, sicuramente non ci sono collisioni (lista dei pid ordinata)
+            while (getProcessByPid(curr_pid) != NULL) {
+                curr_pid++;
+            }
         }
-        curr_pid--; // Per evitare il doppio incremento
     }
     
     return curr_pid++;
@@ -81,9 +83,9 @@ static void _addPid(pcb_t *p) {
         }
     }
 
-    // Nel caso in cui si raggiunga la fine della lista senza che avvenga l'inserimento o se la lista è vuota
+    // Nel caso in cui si raggiunga l'inizio della lista senza che avvenga l'inserimento o se la lista è vuota
     if (inserted == FALSE) {
-        list_add_tail(&p->pid_list, &pid_list_h);
+        list_add(&p->pid_list, &pid_list_h);
     }
 }
 
@@ -242,14 +244,13 @@ pcb_t *outChild(pcb_t *p) {
 }
 
 /**
- * @brief Cerca il processo dato un pid.
+ * @brief Cerca il processo dato il suo pid.
  * @param pid Pid del processo da cercare.
  * @return Il puntatore al processo. NULL se non esiste.
 */
 pcb_t *getProcessByPid(pid_t pid) {
     pcb_t *iter;
 
-    // Inserimento per mantenere la lista ordinata in senso crescente per pid
     list_for_each_entry(iter, &pid_list_h, pid_list) {
         if (iter->p_pid == pid) { return iter; }
         if (iter->p_pid > pid) { return NULL; }
