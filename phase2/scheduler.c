@@ -65,3 +65,29 @@ void scheduler() {
     }
 
 }
+
+/**
+ * @brief Cambia lo stato del processo a bloccato.
+ * @param p Puntatore al PCB del processo.
+ * @param state Puntatore allo stato da salvare nel processo.
+*/
+void setProcessBlocked(pcb_t *p, state_t *state) {
+    // Oss: dato che non è prevista la possibilità di bloccare un processo nella ready queue, l'unico che è possibile bloccare è il corrente
+    // Controllo implementato per maggiore coerenza ma la condizione non si verificherà mai
+    if (p != curr_process) { outProcQ(GET_READY_QUEUE(p->p_prio), p); }
+    
+    curr_process->p_s = *state;
+    // TODO aggiornare tempo CPU
+}
+
+
+/**
+ * @brief Cambia lo stato del processo a ready.
+ * @param p Puntatore al PCB del processo.
+*/
+void setProcessReady(pcb_t *p) {
+    // Verifica che sia un processo valido
+    if (p->p_pid > 0) {
+        insertProcQ(GET_READY_QUEUE(p->p_prio), p);
+    }
+}

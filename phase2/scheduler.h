@@ -7,4 +7,7 @@ pcb_t *process_to_skip;
 
 void scheduler();
 
+void setProcessBlocked(pcb_t *p, state_t *state);
+void setProcessReady(pcb_t *p);
+
 #endif
