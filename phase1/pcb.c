@@ -2,9 +2,10 @@
 
 static pcb_t pcbFree_table[MAXPROC];
 static struct list_head pcbFree_h;
+
 static pid_t curr_pid;
 static struct list_head pid_list_h;
-
+#define FREE_PCB_PID -1
 
 /**
  * @brief Inizializza le strutture dati.
@@ -16,6 +17,7 @@ void initPcbs() {
 
     for (int i=MAXPROC-1; i>=0; i--) {
         list_add(&pcbFree_table[i].p_list, &pcbFree_h);
+        pcbFree_table[i].p_pid = FREE_PCB_PID;
     }
 }
 
@@ -26,6 +28,7 @@ void initPcbs() {
 void freePcb(pcb_t *p) {
     list_add(&p->p_list, &pcbFree_h);
     list_del(&p->pid_list);
+    p->p_pid = FREE_PCB_PID;
 }
 
 
