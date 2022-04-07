@@ -13,8 +13,7 @@ list_head *low_readyqueue;
 
 pcb_t *curr_process;
 
-int semaphore_plt;
-int semaphore_bus;
+int semaphore_it;
 int semaphore_devices[48];
 
 

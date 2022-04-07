@@ -63,7 +63,7 @@ static void killProcess(pcb_t *process) {
         softblocked_count--;
     }
 
-    if (process->p_semAdd == semaphore_bus || process->p_semAdd == semaphore_plt) {
+    if (process->p_semAdd == semaphore_it) {
         // TODO Aggiustare
         outBlocked(process);
     }
@@ -185,7 +185,7 @@ static void getCPUTime() {
  * @brief System call per bloccare il processo in attesa dell'interval timer.
 */
 static void clockWait() {
-    P(semaphore_bus);
+    P(semaphore_it);
 }
 
 /**
