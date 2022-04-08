@@ -61,6 +61,7 @@ void scheduler() {
         curr_process = next_proc;
 
         if (next_prio == PROCESS_PRIO_LOW) { setTIMER(TIMESLICE); }
+        STCK(process_start_time);
         LDST(&next_proc->p_s);
     }
 
@@ -77,7 +78,7 @@ void setProcessBlocked(pcb_t *p, state_t *state) {
     if (p != curr_process) { outProcQ(GET_READY_QUEUE(p->p_prio), p); }
     
     curr_process->p_s = *state;
-    // TODO aggiornare tempo CPU
+    curr_process->p_time += timeDiff(process_start_time);
 }
 
 

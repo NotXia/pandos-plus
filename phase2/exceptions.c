@@ -151,8 +151,7 @@ static void _doIO() {
  * @brief System call che restituisce il tempo di CPU del processo.
 */
 static void _getCPUTime() {
-    // TODO sommare tempo in TOD
-    SYSTEMCALL_RETURN(curr_process->p_time);
+    SYSTEMCALL_RETURN(curr_process->p_time + timeDiff(process_start_time));
 }
 
 /**
@@ -192,6 +191,7 @@ static void _getProcessId() {
  * @brief System call per rilasciare la CPU e tornare ready.
 */
 static void _yield() {
+    curr_process->p_time += timeDiff(process_start_time); // Aggiorna tempo CPU
     setProcessReady(curr_process);
     process_to_skip = curr_process;
 }

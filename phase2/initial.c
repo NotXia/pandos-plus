@@ -90,6 +90,16 @@ int *getIODeviceSemaphore(int command_address) {
     return &semaphore_devices[sem_index];
 }
 
+/**
+ * @brief Calcola la differenza tra start e il tempo attuale.
+ * @param start Tempo di inizio
+ * @return La differenza di tempo.
+*/
+cpu_t timeDiff(cpu_t start) {
+    cpu_t curr_time;
+    STCK(curr_time);
+    return curr_time - start;
+}
 
 void main() {
     _initPassUpVector();
