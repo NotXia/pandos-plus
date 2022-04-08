@@ -3,6 +3,8 @@
 
 #include "pandos_types.h"
 
+#define FREE_PCB_PID -1
+
 void initPcbs();
 void freePcb(pcb_t *p);
 pcb_t *allocPcb();

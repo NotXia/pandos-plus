@@ -5,7 +5,6 @@ static struct list_head pcbFree_h;
 
 static pid_t curr_pid;
 static struct list_head pid_list_h;
-#define FREE_PCB_PID -1
 
 /**
  * @brief Inizializza le strutture dati.

@@ -87,7 +87,7 @@ void setProcessBlocked(pcb_t *p, state_t *state) {
 */
 void setProcessReady(pcb_t *p) {
     // Verifica che sia un processo valido
-    if (p->p_pid > 0) {
+    if (p->p_pid != FREE_PCB_PID) {
         insertProcQ(GET_READY_QUEUE(p->p_prio), p);
     }
 }
