@@ -9,4 +9,8 @@ pcb_t *removeBlocked(int *semAdd);
 pcb_t *outBlocked(pcb_t *p);
 pcb_t *headBlocked(int *semAdd);
 
+
+void V(int *sem);
+void P(int *sem);
+
 #endif
