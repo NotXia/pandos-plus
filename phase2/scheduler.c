@@ -49,6 +49,7 @@ void scheduler() {
 
     if (next_proc == NULL) {
         if (softblocked_count > 0) {
+            curr_process = NULL;
             // Abilita interrupt + disabilita PLT
             setSTATUS((getSTATUS() | IECON | IMON) & ~TEBITON);
             WAIT(); 
