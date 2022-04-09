@@ -208,10 +208,13 @@ void P(int *sem) {
 /**
  * @brief Esegue la V su un semaforo.
  * @param sem Puntatore del semaforo.
+ * @return Il processo sbloccato. NULL se non esiste.
 */
-void V(int *sem) {
+pcb_t *V(int *sem) {
+    pcb_t *ready_proc;
+    
     if (*sem == 0) {
-        pcb_t *ready_proc = removeBlocked(sem);
+        ready_proc  = removeBlocked(sem);
 
         if (ready_proc == NULL) {
             *sem = 1;
@@ -224,4 +227,6 @@ void V(int *sem) {
         // TODO La V è bloccante
         PANIC();
     }
+
+    return ready_proc;
 }

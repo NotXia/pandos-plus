@@ -10,7 +10,7 @@ pcb_t *outBlocked(pcb_t *p);
 pcb_t *headBlocked(int *semAdd);
 
 
-void V(int *sem);
+pcb_t *V(int *sem);
 void P(int *sem);
 
 #endif
