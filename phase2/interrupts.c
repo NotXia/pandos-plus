@@ -8,13 +8,29 @@
 #define RETURN_TO_CURRENT_PROCESS       if (curr_process != NULL) { LDST(PREV_PROCESSOR_STATE); } else { scheduler(); }
 
 /**
+ * @brief Gestisce l'uscita dall'interrupt handler.
+*/
+static void _interruptHandlerExit() {
+    // Riattiva PLT
+    setSTATUS(getSTATUS() | TEBITON);
+    timerFlush();
+
+    if (curr_process != NULL) { 
+        LDST(PREV_PROCESSOR_STATE); 
+    }
+    else { 
+        scheduler(); 
+    }
+}
+
+/**
  * @brief Gestore del Processor Local Timer.
 */
 static void _PLTHandler() {
     setTimer(TIMESLICE); // Ack PLT
 
     curr_process->p_s = *PREV_PROCESSOR_STATE;
-    curr_process->p_time += timerFlush();
+    // curr_process->p_time += timerFlush();
 
     setProcessReady(curr_process);
     scheduler();
@@ -122,6 +138,10 @@ static void _terminalHandler(int device_number) {
  * @brief Gestore degli interrupts.
 */
 void interruptHandler() {
+    // Disattiva PLT
+    setSTATUS(getSTATUS() & ~TEBITON);
+    curr_process->p_time += timerFlush();
+
     // Priorità: PLT > IT > Disco > Flash drive > Stampanti > Terminali (ricezione) > Terminali (trasmissione)
     unsigned int ip = PREV_PROCESSOR_STATE->cause & CAUSE_IP_MASK;
 

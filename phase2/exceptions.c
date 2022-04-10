@@ -1,7 +1,3 @@
-/*
-    TODO Decidere se systemcall / interrupt vengono contate nel tempo CPU del processo
-*/
-
 #include <exceptions.h>
 #include <umps3/umps/libumps.h>
 #include <initial.h>
@@ -50,10 +46,12 @@ static void _killProcess(pcb_t *process) {
     process_count--;
     if (isSoftBlocked(process)) {
         softblocked_count--;
-    }
-    // TODO Gestire a parte il semaforo IT (se serve)
 
-    // TODO Aggiustare i semafori non device (se serve)
+        if (process->p_semAdd == semaphore_it) { outBlocked(process); }
+    }
+    else {
+        outBlocked(process);
+    }
 
     // Rimuove il processo dalla sua coda ready (se necessario)
     outProcQ(GET_READY_QUEUE(process->p_prio), process);
