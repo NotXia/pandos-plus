@@ -5,7 +5,7 @@
 #include <initial.h>
 #include <asl.h>
 
-#define RETURN_TO_CURRENT_PROCESS       if (curr_process != NULL) { LDST(PREV_PROCESSOR_STATE); }
+#define RETURN_TO_CURRENT_PROCESS       if (curr_process != NULL) { LDST(PREV_PROCESSOR_STATE); } else { scheduler(); }
 
 /**
  * @brief Gestore del Processor Local Timer.
@@ -14,7 +14,7 @@ static void _PLTHandler() {
     setTimer(TIMESLICE); // Ack PLT
 
     curr_process->p_s = *PREV_PROCESSOR_STATE;
-    curr_process->p_time += timeDiff(process_start_time);
+    curr_process->p_time += timerFlush();
 
     setProcessReady(curr_process);
     scheduler();
@@ -24,12 +24,14 @@ static void _PLTHandler() {
  * @brief Gestore dell'Interval Timer.
 */
 static void _ITHandler() {
+    // TODO Impostarlo rispetto al TOD      PSECOND - (TOD % PSECOND)
     LDIT(PSECOND); // Reset IT
 
-    // Riattiva tutti i processi in attesa dell'IT (operazione di V fittizia)
+    // Riattiva tutti i processi in attesa dell'IT
     pcb_t *p;
     while ((p = headBlocked(&semaphore_it)) != NULL) {
         V(&semaphore_it);
+        softblocked_count--;
     }
 
     semaphore_it = 0;
@@ -67,11 +69,25 @@ static void _deviceHandler(int line) {
             }
             
             RETURN_TO_CURRENT_PROCESS;
-
-            break; // Nel caso non ci siano processi a cui ritornare il controllo
         }
         mask = mask << 1;
         device_number++;
+    }
+}
+
+/**
+ * @brief Gestisce il valore di ritorno di un device.
+ * @param status Puntatore al campo status del device.
+ * @param command Puntatore al campo command del device.
+*/
+static void _deviceInterruptReturn(unsigned int *status, unsigned int *command) {
+    unsigned int status_code = *status;
+    *command = ACK;
+
+    pcb_t *ready_proc = V(getIODeviceSemaphore((memaddr)command));
+    if (IS_ALIVE(ready_proc)) {
+        ready_proc->p_s.reg_v0 = status_code;
+        softblocked_count--;
     }
 }
 
@@ -82,14 +98,7 @@ static void _deviceHandler(int line) {
 */
 static void _nonTerminalHandler(int line, int device_number) {
     dtpreg_t *device_register = (dtpreg_t *)DEV_REG_ADDR(line, device_number);
-
-    unsigned int status_code = device_register->status;
-    device_register->command = ACK;
-
-    pcb_t *ready_proc = V(getIODeviceSemaphore((int)&device_register->command));
-    if (ready_proc != NULL) {
-        ready_proc->p_s.reg_v0 = status_code;
-    }
+    _deviceInterruptReturn(&device_register->status, &device_register->command);
 }
 
 /**
@@ -100,18 +109,10 @@ static void _terminalHandler(int device_number) {
     termreg_t *device_register = (termreg_t *)DEV_REG_ADDR(IL_TERMINAL, device_number);
 
     if (device_register->recv_status == 5) {
-        unsigned int status_code = device_register->recv_status;
-        device_register->recv_command = ACK;
-
-        pcb_t *ready_proc = V(getIODeviceSemaphore((int)&device_register->recv_command));
-        if (ready_proc != NULL) { ready_proc->p_s.reg_v0 = status_code; }
+        _deviceInterruptReturn(&device_register->recv_status, &device_register->recv_command);
     }
     else {
-        unsigned int status_code = device_register->transm_status;
-        device_register->transm_command = ACK;
-
-        pcb_t *ready_proc = V(getIODeviceSemaphore((int)&device_register->transm_command));
-        if (ready_proc != NULL) { ready_proc->p_s.reg_v0 = status_code; }
+        _deviceInterruptReturn(&device_register->transm_status, &device_register->transm_command);
     }
 }
 

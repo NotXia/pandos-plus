@@ -7,6 +7,8 @@
 #include <scheduler.h>
 
 
+cpu_t timer_start = 0;
+
 /**
  * @brief Inizializza il pass up vector
 */
@@ -65,7 +67,7 @@ int isSoftBlocked(pcb_t *p) {
  * @param address indirizzo del campo command nel device register interessato.
  * @return Puntatore al semaforo.
 */
-int *getIODeviceSemaphore(int command_address) {
+int *getIODeviceSemaphore(memaddr command_address) {
     /* A partire dall'indirizzo del campo command, si calcola l'indirizzo dell'inizio del device register da cui si ricava l'indice del semaforo */
     int sem_index;
     int dev_register_address;
@@ -91,14 +93,16 @@ int *getIODeviceSemaphore(int command_address) {
 }
 
 /**
- * @brief Calcola la differenza tra start e il tempo attuale.
- * @param start Tempo di inizio
+ * @brief Calcola la differenza il tempo attuale e il tempo dall'ultima chiamata.
  * @return La differenza di tempo.
 */
-cpu_t timeDiff(cpu_t start) {
+cpu_t timerFlush() {
     cpu_t curr_time;
     STCK(curr_time);
-    return curr_time - start;
+
+    cpu_t diff = curr_time - timer_start;
+    STCK(timer_start); // Reset tempo di inizio
+    return diff;
 }
 
 void main() {

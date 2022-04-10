@@ -62,7 +62,7 @@ void scheduler() {
         curr_process = next_proc;
 
         if (next_prio == PROCESS_PRIO_LOW) { setTIMER(TIMESLICE); }
-        STCK(process_start_time);
+        timerFlush();
         LDST(&next_proc->p_s);
     }
 
@@ -79,7 +79,7 @@ void setProcessBlocked(pcb_t *p, state_t *state) {
     if (p != curr_process) { outProcQ(GET_READY_QUEUE(p->p_prio), p); }
     
     curr_process->p_s = *state;
-    curr_process->p_time += timeDiff(process_start_time);
+    curr_process->p_time += timerFlush();
 }
 
 
@@ -88,8 +88,7 @@ void setProcessBlocked(pcb_t *p, state_t *state) {
  * @param p Puntatore al PCB del processo.
 */
 void setProcessReady(pcb_t *p) {
-    // Verifica che sia un processo valido
-    if (p->p_pid != FREE_PCB_PID) {
+    if (IS_ALIVE(p)) {
         insertProcQ(GET_READY_QUEUE(p->p_prio), p);
     }
 }

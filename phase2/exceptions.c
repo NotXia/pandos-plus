@@ -7,9 +7,16 @@
 #include <initial.h>
 #include <asl.h>
 #include <scheduler.h>
+#include <interrupts.h>
+
+#define SYSTEMCALL_CODE         PREV_PROCESSOR_STATE->reg_a0
+#define PARAMETER1(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a1
+#define PARAMETER2(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a2
+#define PARAMETER3(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a3
+#define SYSTEMCALL_RETURN(ret)  PREV_PROCESSOR_STATE->reg_v0 = ret
 
 /**
- * @brief System call per crea un processo.
+ * @brief System call per creare un processo figlio di quello corrente.
 */
 static void _createProcess() {
     PARAMETER1(state_t *, statep);
@@ -18,6 +25,7 @@ static void _createProcess() {
 
     pcb_t *new_proc = allocPcb();
 
+    // Non ci sono PCB liberi
     if (new_proc == NULL) {
         SYSTEMCALL_RETURN(-1);
         return;
@@ -26,7 +34,7 @@ static void _createProcess() {
     new_proc->p_s = *statep;
     new_proc->p_prio = (prio == 0 ? PROCESS_PRIO_LOW : PROCESS_PRIO_HIGH);
     new_proc->p_supportStruct = supportp;
-    insertProcQ(GET_READY_QUEUE(prio), new_proc);
+    insertProcQ(GET_READY_QUEUE(new_proc->p_prio), new_proc);
     insertChild(curr_process, new_proc);
 
     SYSTEMCALL_RETURN(new_proc->p_pid);
@@ -43,6 +51,12 @@ static void _killProcess(pcb_t *process) {
     if (isSoftBlocked(process)) {
         softblocked_count--;
     }
+    // TODO Gestire a parte il semaforo IT (se serve)
+
+    // TODO Aggiustare i semafori non device (se serve)
+
+    // Rimuove il processo dalla sua coda ready (se necessario)
+    outProcQ(GET_READY_QUEUE(process->p_prio), process);
 
     pcb_t *child;
     while ((child = removeChild(process)) != NULL) {
@@ -95,7 +109,8 @@ static void _doIO() {
 
     *command_address = command_value;
     
-    int *dev_semaphore = getIODeviceSemaphore((int)command_address);
+    softblocked_count++;
+    int *dev_semaphore = getIODeviceSemaphore((memaddr)command_address);
     P(dev_semaphore);
 }
 
@@ -103,13 +118,15 @@ static void _doIO() {
  * @brief System call che restituisce il tempo di CPU del processo.
 */
 static void _getCPUTime() {
-    SYSTEMCALL_RETURN(curr_process->p_time + timeDiff(process_start_time));
+    curr_process->p_time += timerFlush();
+    SYSTEMCALL_RETURN(curr_process->p_time);
 }
 
 /**
  * @brief System call per bloccare il processo in attesa dell'interval timer.
 */
 static void _clockWait() {
+    softblocked_count++;
     P(semaphore_it);
 }
 
@@ -143,7 +160,7 @@ static void _getProcessId() {
  * @brief System call per rilasciare la CPU e tornare ready.
 */
 static void _yield() {
-    curr_process->p_time += timeDiff(process_start_time); // Aggiorna tempo CPU
+    curr_process->p_time += timerFlush();
     setProcessReady(curr_process);
     process_to_skip = curr_process;
 }
@@ -159,7 +176,7 @@ static void _generateTrap() {
 /**
  * @brief Gestore delle system call.
 */
-static void systemcallHandler() {
+static void _systemcallHandler() {
     // Controllo permessi (kernel mode)
     if ((SYSTEMCALL_CODE < 0) && ((PREV_PROCESSOR_STATE->status & KUC_BIT) != 0)) {
         _generateTrap();
@@ -180,7 +197,7 @@ static void systemcallHandler() {
         case(GETPROCESSID):  _getProcessId();  break;
         case(YIELD):         _yield();         break;
 
-        default:
+        default: // Codice system call non valida
             _generateTrap();
             break;
     }
@@ -210,6 +227,7 @@ void exceptionHandler() {
     switch (EXCEPTION_CODE) {
         // Interrupts
         case(0):
+            interruptHandler();
             break;
 
         // TLB exceptions
@@ -233,7 +251,7 @@ void exceptionHandler() {
 
         // Systemcall
         case(8):
-            systemcallHandler();
+            _systemcallHandler();
             break;
     }
 }
