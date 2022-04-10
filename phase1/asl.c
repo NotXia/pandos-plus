@@ -191,7 +191,7 @@ pcb_t *headBlocked(int *semAdd) {
 
 
 /**
- * @brief Esegue la P su un semaforo.
+ * @brief Esegue la P su un semaforo binario.
  * @param sem Puntatore del semaforo.
 */
 void P(int *sem) {
@@ -200,32 +200,34 @@ void P(int *sem) {
         setProcessBlocked(curr_process, PREV_PROCESSOR_STATE);
         scheduler();
     }
+    else if (!headBlocked(sem) != NULL) {
+        pcb_t *ready_proc = removeBlocked(sem);
+        setProcessReady(ready_proc);
+    }
     else {
         *sem = 0;
     }
 }
 
 /**
- * @brief Esegue la V su un semaforo.
+ * @brief Esegue la V su un semaforo binario.
  * @param sem Puntatore del semaforo.
  * @return Il processo sbloccato. NULL se non esiste.
 */
 pcb_t *V(int *sem) {
     pcb_t *ready_proc;
     
-    if (*sem == 0) {
-        ready_proc  = removeBlocked(sem);
-
-        if (ready_proc == NULL) {
-            *sem = 1;
-        }
-        else { // Sblocca un processo bloccato sullo stesso semaforo
-            setProcessReady(ready_proc);
-        }
+    if (*sem == 1) {
+        if (insertBlocked(sem, curr_process)) { PANIC(); } // Non ci sono semafori disponibili
+        setProcessBlocked(curr_process, PREV_PROCESSOR_STATE);
+        scheduler();
+    }
+    else if (!headBlocked(sem) != NULL) {
+        ready_proc = removeBlocked(sem);
+        setProcessReady(ready_proc);
     }
     else {
-        // TODO La V è bloccante
-        PANIC();
+        *sem = 1;
     }
 
     return ready_proc;
