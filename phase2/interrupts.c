@@ -24,9 +24,6 @@ static void _PLTHandler() {
  * @brief Gestore dell'Interval Timer.
 */
 static void _ITHandler() {
-    // TODO Impostarlo rispetto al TOD      PSECOND - (TOD % PSECOND)
-    LDIT(PSECOND); // Reset IT
-
     // Riattiva tutti i processi in attesa dell'IT
     pcb_t *p;
     while ((p = headBlocked(&semaphore_it)) != NULL) {
@@ -35,6 +32,11 @@ static void _ITHandler() {
     }
 
     semaphore_it = 0;
+
+    // Per evitare che i ritardi si accumulino
+    cpu_t curr_time;
+    STCK(curr_time);
+    LDIT(PSECOND - (curr_time % PSECOND)); // Reset IT
 
     RETURN_TO_CURRENT_PROCESS;
 }
