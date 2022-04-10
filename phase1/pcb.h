@@ -19,4 +19,12 @@ pcb_t *removeChild(pcb_t *p);
 pcb_t *outChild(pcb_t *p);
 
 
+#define FREE_PCB_PID    -1
+
+// Indica se il processo relativo ad un PCB è ancora attivo in un qualunque stato di esecuzione
+#define IS_ALIVE(p)     (p)->p_pid != FREE_PCB_PID
+
+pcb_t *getProcessByPid(pid_t pid);
+
+
 #endif

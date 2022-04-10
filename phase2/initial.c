@@ -7,6 +7,8 @@
 #include <scheduler.h>
 
 
+cpu_t timer_start = 0;
+
 /**
  * @brief Inizializza il pass up vector
 */
@@ -22,15 +24,9 @@ static void _initPassUpVector() {
  * @brief Inizializza i semafori
 */
 static void _initDeviceSemaphores() {
-    semaphore_plt = 0;
-    semaphore_bus = 0;
-    for (int i=0; i<8; i++) {
-        semaphore_disk[i] = 0;
-        semaphore_flashdrive[i] = 0;
-        semaphore_network[i] = 0;
-        semaphore_printer[i] = 0;
-        semaphore_terminal[i] = 0;
-        semaphore_terminal[i+8] = 0;
+    semaphore_it = 0;
+    for (int i=0; i<TOTAL_IO_DEVICES; i++) {
+        semaphore_devices[i] = 0;
     }
 }
 
@@ -48,6 +44,65 @@ static pcb_t *_createFirstProcess() {
     first_proc->p_s.reg_t9 = first_proc->p_s.pc_epc = (memaddr)test;
 
     return first_proc;
+}
+
+/**
+ * @brief Indica se un processo è soft-blocked (quindi bloccato su un qualunque device).
+ * @param p Puntatore al PCB del processo da controllare.
+ * @return TRUE se è soft-blocked, FALSE altrimenti.
+*/
+int isSoftBlocked(pcb_t *p) {
+    if (p->p_semAdd == NULL) { return FALSE; }
+
+    if (p->p_semAdd == semaphore_it) { return TRUE; }
+    for (int i=0; i<TOTAL_IO_DEVICES; i++) {
+        if (p->p_semAdd == semaphore_devices[i]) { return TRUE; }
+    }
+
+    return FALSE;
+}
+
+/**
+ * @brief Restituisce il semaforo associato ad un dispositivo di I/O ricercato per indirizzo del campo command nel device register.
+ * @param address indirizzo del campo command nel device register interessato.
+ * @return Puntatore al semaforo.
+*/
+int *getIODeviceSemaphore(memaddr command_address) {
+    /* A partire dall'indirizzo del campo command, si calcola l'indirizzo dell'inizio del device register da cui si ricava l'indice del semaforo */
+    int sem_index;
+    int dev_register_address;
+    int offset = 0;
+
+    if (command_address >= TERM0ADDR) { // Terminale
+        // Per i terminali i due registri command distano 2 word e quindi la loro distanza è di 0x8 (0b1000)
+        // Quindi si possono differenziare tra loro valutando il valore del 4° bit
+        if ((command_address & 0b1000) == 0b1000) { // Ricezione
+            dev_register_address = command_address - 0x4;
+        } 
+        else { // Trasmissione
+            dev_register_address = command_address - 0xC;
+            offset = 8;
+        }
+    }
+    else { // Altri device
+        dev_register_address = command_address - 0x4;
+    }
+
+    sem_index = ((dev_register_address - TERM0ADDR) / DEVREG_SIZE) + offset;
+    return &semaphore_devices[sem_index];
+}
+
+/**
+ * @brief Calcola la differenza il tempo attuale e il tempo dall'ultima chiamata.
+ * @return La differenza di tempo.
+*/
+cpu_t timerFlush() {
+    cpu_t curr_time;
+    STCK(curr_time);
+
+    cpu_t diff = curr_time - timer_start;
+    STCK(timer_start); // Reset tempo di inizio
+    return diff;
 }
 
 void main() {

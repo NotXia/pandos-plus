@@ -2,7 +2,7 @@
 #include <initial.h>
 #include <umps3/umps/libumps.h>
 
-pcb_t *to_ignore = NULL; // Per gestire i processi che chiamano yield
+to_ignore = NULL; // Per gestire i processi che chiamano yield
 
 /**
  * @brief Seleziona il prossimo processo da mandare avanti.
@@ -49,6 +49,7 @@ void scheduler() {
 
     if (next_proc == NULL) {
         if (softblocked_count > 0) {
+            curr_process = NULL;
             // Abilita interrupt + disabilita PLT
             setSTATUS((getSTATUS() | IECON | IMON) & ~TEBITON);
             WAIT(); 
@@ -61,7 +62,33 @@ void scheduler() {
         curr_process = next_proc;
 
         if (next_prio == PROCESS_PRIO_LOW) { setTIMER(TIMESLICE); }
+        timerFlush();
         LDST(&next_proc->p_s);
     }
 
+}
+
+/**
+ * @brief Cambia lo stato del processo a bloccato.
+ * @param p Puntatore al PCB del processo.
+ * @param state Puntatore allo stato da salvare nel processo.
+*/
+void setProcessBlocked(pcb_t *p, state_t *state) {
+    // Oss: dato che non è prevista la possibilità di bloccare un processo nella ready queue, l'unico che è possibile bloccare è il corrente
+    // Controllo implementato per maggiore coerenza ma la condizione non si verificherà mai
+    if (p != curr_process) { outProcQ(GET_READY_QUEUE(p->p_prio), p); }
+    
+    curr_process->p_s = *state;
+    curr_process->p_time += timerFlush();
+}
+
+
+/**
+ * @brief Cambia lo stato del processo a ready.
+ * @param p Puntatore al PCB del processo.
+*/
+void setProcessReady(pcb_t *p) {
+    if (IS_ALIVE(p)) {
+        insertProcQ(GET_READY_QUEUE(p->p_prio), p);
+    }
 }

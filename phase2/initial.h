@@ -8,18 +8,22 @@
 unsigned int process_count;
 unsigned int softblocked_count;
 
+
 struct list_head *high_readyqueue;
 struct list_head *low_readyqueue;
+#define GET_READY_QUEUE(prio) (prio == PROCESS_PRIO_LOW ? low_readyqueue : high_readyqueue)
+
 
 pcb_t *curr_process;
 
-int semaphore_plt;
-int semaphore_bus;
-int semaphore_disk[8];
-int semaphore_flashdrive[8];
-int semaphore_network[8];
-int semaphore_printer[8];
-int semaphore_terminal[16];
+int semaphore_it;
+int semaphore_devices[48];
 
+
+#define TOTAL_IO_DEVICES 48
+
+int isSoftBlocked(pcb_t *p);
+int *getIODeviceSemaphore(memaddr address);
+cpu_t timerFlush();
 
 #endif

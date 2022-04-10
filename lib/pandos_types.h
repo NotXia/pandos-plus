@@ -14,6 +14,7 @@
 
 typedef signed int   cpu_t;
 typedef unsigned int memaddr;
+typedef unsigned int pid_t;
 
 
 /* Page Table Entry descriptor */
@@ -64,7 +65,10 @@ typedef struct pcb_t {
     int p_prio;
 
     /* process id */
-    int p_pid;
+    pid_t p_pid;
+
+    /* List of (active) process id */
+    struct list_head pid_list;
 } pcb_t, *pcb_PTR;
 
 

@@ -62,6 +62,7 @@
 #define IMON        0x0000FF00
 #define TEBITON     0x08000000
 #define DISABLEINTS 0xFFFFFFFE
+#define KUC_BIT     0x00000002
 
 /* Cause register constants */
 #define GETEXECCODE    0x0000007C
@@ -70,6 +71,7 @@
 #define TIMERINTERRUPT 0x00000400
 #define DISKINTERRUPT  0x00000800
 #define FLASHINTERRUPT 0x00001000
+#define NETINTERRUPT   0x00002000
 #define PRINTINTERRUPT 0x00004000
 #define TERMINTERRUPT  0x00008000
 #define IOINTERRUPTS   0
@@ -169,6 +171,11 @@
 #define UPROCMAX 8
 #define POOLSIZE (UPROCMAX * 2)
 /* End of Mikeyg constants */
+
+
+#define TERM0ADDR       0x10000254
+#define DEVREG_START    0x10000054
+#define DEVREG_SIZE     0x10
 
 
 #endif

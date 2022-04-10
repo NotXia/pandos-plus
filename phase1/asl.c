@@ -1,5 +1,8 @@
 #include "asl.h"
 #include "pcb.h"
+#include <scheduler.h>
+#include <initial.h>
+#include <exceptions.h>
 
 static semd_t semd_table[MAXPROC];  // Allocazione dei semafori
 static struct list_head semdFree_h; // Lista di semafori liberi
@@ -184,4 +187,48 @@ pcb_t *headBlocked(int *semAdd) {
     if (sem == NULL) { return NULL; } // Il semaforo non esiste
 
     return headProcQ(&sem->s_procq);
+}
+
+
+/**
+ * @brief Esegue la P su un semaforo binario.
+ * @param sem Puntatore del semaforo.
+*/
+void P(int *sem) {
+    if (*sem == 0) {
+        if (insertBlocked(sem, curr_process)) { PANIC(); } // Non ci sono semafori disponibili
+        setProcessBlocked(curr_process, PREV_PROCESSOR_STATE);
+        scheduler();
+    }
+    else if (!headBlocked(sem) != NULL) {
+        pcb_t *ready_proc = removeBlocked(sem);
+        setProcessReady(ready_proc);
+    }
+    else {
+        *sem = 0;
+    }
+}
+
+/**
+ * @brief Esegue la V su un semaforo binario.
+ * @param sem Puntatore del semaforo.
+ * @return Il processo sbloccato. NULL se non esiste.
+*/
+pcb_t *V(int *sem) {
+    pcb_t *ready_proc;
+    
+    if (*sem == 1) {
+        if (insertBlocked(sem, curr_process)) { PANIC(); } // Non ci sono semafori disponibili
+        setProcessBlocked(curr_process, PREV_PROCESSOR_STATE);
+        scheduler();
+    }
+    else if (!headBlocked(sem) != NULL) {
+        ready_proc = removeBlocked(sem);
+        setProcessReady(ready_proc);
+    }
+    else {
+        *sem = 1;
+    }
+
+    return ready_proc;
 }
