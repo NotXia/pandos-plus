@@ -15,6 +15,7 @@ add_library(crtso STATIC ${UMPS_SRC}/crtso.S)
 add_library(libumps STATIC ${UMPS_SRC}/libumps.S)
 
 include_directories("lib")
+add_subdirectory("lib")
 add_subdirectory("phase1")
 add_subdirectory("phase2")
 

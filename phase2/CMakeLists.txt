@@ -7,16 +7,19 @@ target_link_libraries(initial PRIVATE scheduler)
 
 add_library(scheduler scheduler.c)
 target_link_libraries(scheduler PRIVATE initial)
+target_link_libraries(scheduler PRIVATE utilities)
 target_link_libraries(scheduler PUBLIC pcb)
 
 add_library(exceptions exceptions.c)
 target_link_libraries(exceptions PRIVATE initial)
+target_link_libraries(exceptions PRIVATE utilities)
 target_link_libraries(exceptions PRIVATE asl)
 target_link_libraries(exceptions PRIVATE scheduler)
 target_link_libraries(exceptions PRIVATE interrupts)
 
 add_library(interrupts interrupts.c)
 target_link_libraries(interrupts PRIVATE scheduler)
+target_link_libraries(interrupts PRIVATE utilities)
 target_link_libraries(interrupts PRIVATE initial)
 target_link_libraries(interrupts PRIVATE asl)
 
