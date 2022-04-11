@@ -252,6 +252,8 @@ pcb_t *getProcessByPid(pid_t pid) {
 
     list_for_each_entry(iter, &pid_list_h, pid_list) {
         if (iter->p_pid == pid) { return iter; }
-        if (iter->p_pid > pid) { return NULL; }
+        if (iter->p_pid > pid) { break; }
     }
+
+    return NULL;
 }
