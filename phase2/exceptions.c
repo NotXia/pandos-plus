@@ -81,6 +81,10 @@ static void _termProcess() {
         if (process_to_kill != NULL) {
             _killProcess(process_to_kill);
         }
+
+        if (!IS_ALIVE(curr_process)) {
+            scheduler();
+        }
     }    
 }
 
