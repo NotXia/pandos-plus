@@ -204,7 +204,6 @@ void P(int *sem) {
     }
     else if (headBlocked(sem) != NULL) {
         pcb_t *ready_proc = removeBlocked(sem);
-        ready_proc->p_semAdd = NULL;
         setProcessReady(ready_proc);
     }
     else {
@@ -227,7 +226,6 @@ pcb_t *V(int *sem) {
     }
     else if (headBlocked(sem) != NULL) {
         ready_proc = removeBlocked(sem);
-        ready_proc->p_semAdd = NULL;
         setProcessReady(ready_proc);
     }
     else {
