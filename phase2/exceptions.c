@@ -4,6 +4,7 @@
 #include <asl.h>
 #include <scheduler.h>
 #include <interrupts.h>
+#include <utilities.h>
 
 #define SYSTEMCALL_CODE         PREV_PROCESSOR_STATE->reg_a0
 #define PARAMETER1(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a1
@@ -27,6 +28,7 @@ static void _createProcess() {
         return;
     }
 
+    process_count++;
     new_proc->p_s = *statep;
     new_proc->p_prio = (prio == 0 ? PROCESS_PRIO_LOW : PROCESS_PRIO_HIGH);
     new_proc->p_supportStruct = supportp;
@@ -47,9 +49,9 @@ static void _killProcess(pcb_t *process) {
     if (isSoftBlocked(process)) {
         softblocked_count--;
 
-        if (process->p_semAdd == semaphore_it) { outBlocked(process); }
+        if (process->p_semAdd == &semaphore_it) { outBlocked(process); }
     }
-    else {
+    else if (process->p_semAdd != NULL) {
         outBlocked(process);
     }
 
@@ -125,14 +127,14 @@ static void _getCPUTime() {
 */
 static void _clockWait() {
     softblocked_count++;
-    P(semaphore_it);
+    P(&semaphore_it);
 }
 
 /**
  * @brief System call che restituisce il puntatore alla struttura di supporto del processo.
 */
 static void _getSupportPtr() {
-    SYSTEMCALL_RETURN(curr_process->p_supportStruct);
+    SYSTEMCALL_RETURN((memaddr)curr_process->p_supportStruct);
 }
 
 /**
@@ -159,8 +161,28 @@ static void _getProcessId() {
 */
 static void _yield() {
     curr_process->p_time += timerFlush();
-    setProcessReady(curr_process);
+    curr_process->p_s = *PREV_PROCESSOR_STATE;
     process_to_skip = curr_process;
+    setProcessReady(curr_process);
+
+    curr_process = NULL;
+    scheduler();
+}
+
+
+/**
+ * @brief Gestore del pass up or die.
+*/
+static void _passUpOrDieHandler(int index) {
+    if (curr_process->p_supportStruct == NULL) {
+        _killProcess(curr_process);
+        scheduler();
+    }
+    else {
+        curr_process->p_supportStruct->sup_exceptState[index] = *PREV_PROCESSOR_STATE;
+        context_t ctx = curr_process->p_supportStruct->sup_exceptContext[index];
+        LDCXT(ctx.stackPtr, ctx.status, ctx.pc);
+    }
 }
 
 /**
@@ -168,7 +190,7 @@ static void _yield() {
 */
 static void _generateTrap() {
     PREV_PROCESSOR_STATE->cause = (PREV_PROCESSOR_STATE->cause & 0xFFFFFF83) | 0x28; // Reserved instruction
-    // _passUpOrDieHandler(GENERALEXCEPT);
+    _passUpOrDieHandler(GENERALEXCEPT);
 }
 
 /**
@@ -201,21 +223,6 @@ static void _systemcallHandler() {
     }
 
     LDST(PREV_PROCESSOR_STATE);
-}
-
-/**
- * @brief Gestore del pass up or die.
-*/
-static void _passUpOrDieHandler(int index) {
-    if (curr_process->p_supportStruct == NULL) {
-        _killProcess(curr_process);
-        scheduler();
-    }
-    else {
-        curr_process->p_supportStruct->sup_exceptState[index] = *PREV_PROCESSOR_STATE;
-        context_t ctx = curr_process->p_supportStruct->sup_exceptContext[index];
-        LDCXT(ctx.stackPtr, ctx.status, ctx.pc);
-    }
 }
 
 /**

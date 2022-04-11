@@ -4,8 +4,9 @@
 #include <scheduler.h>
 #include <initial.h>
 #include <asl.h>
+#include <utilities.h>
 
-#define RETURN_TO_CURRENT_PROCESS       if (curr_process != NULL) { LDST(PREV_PROCESSOR_STATE); } else { scheduler(); }
+// #define RETURN_TO_CURRENT_PROCESS       if (curr_process != NULL) { LDST(PREV_PROCESSOR_STATE); } else { scheduler(); }
 
 /**
  * @brief Gestisce l'uscita dall'interrupt handler.
@@ -18,7 +19,7 @@ static void _interruptHandlerExit() {
     if (curr_process != NULL) { 
         LDST(PREV_PROCESSOR_STATE); 
     }
-    else { 
+    else {
         scheduler(); 
     }
 }
@@ -27,12 +28,13 @@ static void _interruptHandlerExit() {
  * @brief Gestore del Processor Local Timer.
 */
 static void _PLTHandler() {
-    setTimer(TIMESLICE); // Ack PLT
+    setTIMER(TIMESLICE); // Ack PLT
 
     curr_process->p_s = *PREV_PROCESSOR_STATE;
-    // curr_process->p_time += timerFlush();
+    curr_process->p_time += timerFlush();
 
     setProcessReady(curr_process);
+    curr_process = NULL;
     scheduler();
 }
 
@@ -41,9 +43,11 @@ static void _PLTHandler() {
 */
 static void _ITHandler() {
     // Riattiva tutti i processi in attesa dell'IT
-    pcb_t *p;
-    while ((p = headBlocked(&semaphore_it)) != NULL) {
-        V(&semaphore_it);
+    while (headBlocked(&semaphore_it) != NULL) {
+        // V(&semaphore_it);
+        pcb_t *ready_proc = removeBlocked(&semaphore_it);
+        setProcessReady(ready_proc);
+
         softblocked_count--;
     }
 
@@ -53,8 +57,7 @@ static void _ITHandler() {
     cpu_t curr_time;
     STCK(curr_time);
     LDIT(PSECOND - (curr_time % PSECOND)); // Reset IT
-
-    RETURN_TO_CURRENT_PROCESS;
+    _interruptHandlerExit();
 }
 
 /**
@@ -67,31 +70,6 @@ static unsigned int _getDeviceInterruptBitmap(int line) {
     return bus_reg_area->interrupt_dev[line-3];
 }
 
-/**
- * @brief Gestore dei device di I/O.
- * @param line Linea di interrupt.
-*/
-static void _deviceHandler(int line) {
-    unsigned int bitmap = _getDeviceInterruptBitmap(line);
-    unsigned int mask = 1;
-    int device_number = 0;
-
-    // Individua il device che ha generato l'interrupt
-    for (int i=0; i<N_DEV_PER_IL; i++) {
-        if (bitmap & mask != 0) {
-            if (line != IL_TERMINAL) {
-                _nonTerminalHandler(line, device_number);
-            }
-            else {
-                _terminalHandler(device_number);
-            }
-            
-            RETURN_TO_CURRENT_PROCESS;
-        }
-        mask = mask << 1;
-        device_number++;
-    }
-}
 
 /**
  * @brief Gestisce il valore di ritorno di un device.
@@ -104,8 +82,8 @@ static void _deviceInterruptReturn(unsigned int *status, unsigned int *command) 
 
     pcb_t *ready_proc = V(getIODeviceSemaphore((memaddr)command));
     if (IS_ALIVE(ready_proc)) {
-        ready_proc->p_s.reg_v0 = status_code;
         softblocked_count--;
+        ready_proc->p_s.reg_v0 = status_code;
     }
 }
 
@@ -135,35 +113,64 @@ static void _terminalHandler(int device_number) {
 }
 
 /**
+ * @brief Gestore dei device di I/O.
+ * @param line Linea di interrupt.
+*/
+static void _deviceHandler(int line) {
+    unsigned int bitmap = _getDeviceInterruptBitmap(line);
+    unsigned int mask = 1;
+    int device_number = 0;
+
+    // Individua il device che ha generato l'interrupt
+    for (int i=0; i<N_DEV_PER_IL; i++) {
+        if ((bitmap & mask) != 0) {
+            if (line != IL_TERMINAL) {
+                _nonTerminalHandler(line, device_number);
+            }
+            else {
+                _terminalHandler(device_number);
+            }
+            
+            _interruptHandlerExit();
+        }
+        mask = mask << 1;
+        device_number++;
+    }
+}
+
+
+/**
  * @brief Gestore degli interrupts.
 */
 void interruptHandler() {
     // Disattiva PLT
     setSTATUS(getSTATUS() & ~TEBITON);
-    curr_process->p_time += timerFlush();
+    if (curr_process != NULL) {
+        curr_process->p_time += timerFlush();
+    }
 
     // Priorità: PLT > IT > Disco > Flash drive > Stampanti > Terminali (ricezione) > Terminali (trasmissione)
     unsigned int ip = PREV_PROCESSOR_STATE->cause & CAUSE_IP_MASK;
 
-    if (ip & LOCALTIMERINT != 0) {          // Linea 1 (PLT)
+    if ((ip & LOCALTIMERINT) != 0) {          // Linea 1 (PLT)
         _PLTHandler();
     }
-    else if (ip & TIMERINTERRUPT != 0) {    // Line 2 (IT)
+    else if ((ip & TIMERINTERRUPT) != 0) {    // Line 2 (IT)
         _ITHandler();
     }
-    else if (ip & DISKINTERRUPT != 0) {     // Line 3
+    else if ((ip & DISKINTERRUPT) != 0) {     // Line 3
         _deviceHandler(IL_DISK);
     }
-    else if (ip & FLASHINTERRUPT != 0) {    // Line 4
+    else if ((ip & FLASHINTERRUPT) != 0) {    // Line 4
         _deviceHandler(IL_FLASH);
     }
-    else if (ip & NETINTERRUPT != 0) {      // Line 5
+    else if ((ip & NETINTERRUPT) != 0) {      // Line 5
         _deviceHandler(IL_ETHERNET);
     }
-    else if (ip & PRINTINTERRUPT != 0) {    // Line 6
+    else if ((ip & PRINTINTERRUPT) != 0) {    // Line 6
         _deviceHandler(IL_PRINTER);
     }
-    else if (ip & TERMINTERRUPT != 0) {     // Line 7
+    else if ((ip & TERMINTERRUPT) != 0) {     // Line 7
         _deviceHandler(IL_TERMINAL);
     }
 }

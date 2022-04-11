@@ -1,50 +1,17 @@
-#include <initial.h>
+#include "initial.h"
 #include <asl.h>
 #include <pandos_const.h>
 #include <pandos_types.h>
 #include <exceptions.h>
 #include <interrupts.h>
 #include <scheduler.h>
+#include "test/p2test.0.2.c"
 
+// Forward declaration
+extern void test();
+extern void uTLB_RefillHandler();
 
 cpu_t timer_start = 0;
-
-/**
- * @brief Inizializza il pass up vector
-*/
-static void _initPassUpVector() {
-    passupvector_t *pass_up_vector = (passupvector_t *)PASSUPVECTOR;
-    pass_up_vector->tlb_refill_handler = (memaddr)uTLB_RefillHandler;
-    pass_up_vector->tlb_refill_stackPtr = KERNELSTACK;
-    pass_up_vector->exception_handler = (memaddr)exceptionHandler;
-    pass_up_vector->exception_stackPtr = KERNELSTACK;
-}
-
-/**
- * @brief Inizializza i semafori
-*/
-static void _initDeviceSemaphores() {
-    semaphore_it = 0;
-    for (int i=0; i<TOTAL_IO_DEVICES; i++) {
-        semaphore_devices[i] = 0;
-    }
-}
-
-/**
- * @brief Crea il primo processo
- * @return Puntatore al PCB del processo creato
-*/
-static pcb_t *_createFirstProcess() {
-    pcb_t *first_proc = allocPcb();
-
-    first_proc->p_prio = PROCESS_PRIO_LOW;
-    RAMTOP(first_proc->p_s.reg_sp);
-    // Interrupt abilitati + PLT abilitato + Kernel mode
-    first_proc->p_s.status = ALLOFF | IMON | IEPON | TEBITON;
-    first_proc->p_s.reg_t9 = first_proc->p_s.pc_epc = (memaddr)test;
-
-    return first_proc;
-}
 
 /**
  * @brief Indica se un processo è soft-blocked (quindi bloccato su un qualunque device).
@@ -54,9 +21,9 @@ static pcb_t *_createFirstProcess() {
 int isSoftBlocked(pcb_t *p) {
     if (p->p_semAdd == NULL) { return FALSE; }
 
-    if (p->p_semAdd == semaphore_it) { return TRUE; }
+    if (p->p_semAdd == &semaphore_it) { return TRUE; }
     for (int i=0; i<TOTAL_IO_DEVICES; i++) {
-        if (p->p_semAdd == semaphore_devices[i]) { return TRUE; }
+        if (p->p_semAdd == &semaphore_devices[i]) { return TRUE; }
     }
 
     return FALSE;
@@ -105,19 +72,61 @@ cpu_t timerFlush() {
     return diff;
 }
 
-void main() {
+
+/**
+ * @brief Inizializza il pass up vector
+*/
+static void _initPassUpVector() {
+    passupvector_t *pass_up_vector = (passupvector_t *)PASSUPVECTOR;
+    
+    pass_up_vector->tlb_refill_handler = (memaddr)uTLB_RefillHandler;
+    pass_up_vector->tlb_refill_stackPtr = (memaddr)KERNELSTACK;
+    pass_up_vector->exception_handler = (memaddr)exceptionHandler;
+    pass_up_vector->exception_stackPtr = (memaddr)KERNELSTACK;
+}
+
+/**
+ * @brief Inizializza i semafori
+*/
+static void _initDeviceSemaphores() {
+    semaphore_it = 0;
+    for (int i = 0; i<TOTAL_IO_DEVICES; i++) {
+        semaphore_devices[i] = 0;
+    }
+}
+
+/**
+ * @brief Crea il primo processo
+ * @return Puntatore al PCB del processo creato
+*/
+static pcb_t *_createFirstProcess() {
+    pcb_t *first_proc = allocPcb();
+
+    first_proc->p_prio = PROCESS_PRIO_LOW;
+    RAMTOP(first_proc->p_s.reg_sp);
+    // Interrupt abilitati + PLT abilitato + Kernel mode
+    first_proc->p_s.status = ALLOFF | IMON | IEPON | TEBITON;
+    first_proc->p_s.reg_t9 = first_proc->p_s.pc_epc = (memaddr)test;
+
+    return first_proc;
+}
+
+int main(void) {
     _initPassUpVector();
     initPcbs();
     initASL();
     process_count = 0;
     softblocked_count = 0;
-    mkEmptyProcQ(high_readyqueue);
-    mkEmptyProcQ(low_readyqueue);
+    mkEmptyProcQ(&high_readyqueue);
+    mkEmptyProcQ(&low_readyqueue);
     curr_process = NULL;
     _initDeviceSemaphores();
     LDIT(PSECOND);
 
-    insertProcQ(low_readyqueue, _createFirstProcess());
+    insertProcQ(&low_readyqueue, _createFirstProcess());
+    process_count++;
 
     scheduler();
+
+    return 0;
 }

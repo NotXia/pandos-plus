@@ -3,15 +3,14 @@
 
 #include <umps3/umps/libumps.h>
 #include <pcb.h>
-#include <listx.h>
 
 unsigned int process_count;
 unsigned int softblocked_count;
 
 
-struct list_head *high_readyqueue;
-struct list_head *low_readyqueue;
-#define GET_READY_QUEUE(prio) (prio == PROCESS_PRIO_LOW ? low_readyqueue : high_readyqueue)
+struct list_head high_readyqueue;
+struct list_head low_readyqueue;
+#define GET_READY_QUEUE(prio) (prio == PROCESS_PRIO_LOW ? &low_readyqueue : &high_readyqueue)
 
 
 pcb_t *curr_process;
