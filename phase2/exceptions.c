@@ -6,7 +6,7 @@
 #include <interrupts.h>
 #include <utilities.h>
 
-#define SYSTEMCALL_CODE         PREV_PROCESSOR_STATE->reg_a0
+#define SYSTEMCALL_CODE         ((int)PREV_PROCESSOR_STATE->reg_a0)
 #define PARAMETER1(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a1
 #define PARAMETER2(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a2
 #define PARAMETER3(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a3
@@ -173,7 +173,6 @@ static void _yield() {
     scheduler();
 }
 
-
 /**
  * @brief Gestore del pass up or die.
 */
@@ -201,13 +200,16 @@ static void _generateTrap() {
  * @brief Gestore delle system call.
 */
 static void _systemcallHandler() {
+    if (SYSTEMCALL_CODE >= 1) {
+        _passUpOrDieHandler(GENERALEXCEPT); 
+    }
+
     // Controllo permessi (kernel mode)
-    if ((SYSTEMCALL_CODE < 0) && ((PREV_PROCESSOR_STATE->status & KUC_BIT) != 0)) {
+    if ((SYSTEMCALL_CODE < 0) && (PREV_PROCESSOR_STATE->status & USERPON) != 0) {
         _generateTrap();
     }
 
     PREV_PROCESSOR_STATE->pc_epc += WORDLEN;
-    // curr_process->p_s.pc_epc += 4;
 
     switch (SYSTEMCALL_CODE) {
         case(CREATEPROCESS): _createProcess(); break;
