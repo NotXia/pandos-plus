@@ -156,6 +156,7 @@ pcb_t *removeBlocked(int *semAdd) {
     if (sem == NULL) { return NULL; } // Il semaforo non esiste
 
     pcb_t *pcb = removeProcQ(&sem->s_procq);
+    pcb->p_semAdd = NULL;
     _updateActiveSemaphore(sem);
     
     return pcb;
@@ -172,6 +173,7 @@ pcb_t *outBlocked(pcb_t *p) {
     if (sem == NULL) { return NULL; } // Il semaforo non esiste
     
     pcb_t *pcb = outProcQ(&sem->s_procq, p);
+    pcb->p_semAdd = NULL;
     _updateActiveSemaphore(sem);
     
     return pcb;
@@ -200,8 +202,9 @@ void P(int *sem) {
         setProcessBlocked(curr_process, PREV_PROCESSOR_STATE);
         scheduler();
     }
-    else if (!headBlocked(sem) != NULL) {
+    else if (headBlocked(sem) != NULL) {
         pcb_t *ready_proc = removeBlocked(sem);
+        ready_proc->p_semAdd = NULL;
         setProcessReady(ready_proc);
     }
     else {
@@ -222,8 +225,9 @@ pcb_t *V(int *sem) {
         setProcessBlocked(curr_process, PREV_PROCESSOR_STATE);
         scheduler();
     }
-    else if (!headBlocked(sem) != NULL) {
+    else if (headBlocked(sem) != NULL) {
         ready_proc = removeBlocked(sem);
+        ready_proc->p_semAdd = NULL;
         setProcessReady(ready_proc);
     }
     else {
