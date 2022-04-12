@@ -9,9 +9,6 @@
 #define PREV_PROCESSOR_STATE    ((state_t *)BIOSDATAPAGE)
 #define EXCEPTION_CODE          CAUSE_GET_EXCCODE(PREV_PROCESSOR_STATE->cause)
 
-#define V(sem)   semV(sem, curr_process, PREV_PROCESSOR_STATE)
-#define P(sem)   semP(sem, curr_process, PREV_PROCESSOR_STATE)
-
 void exceptionHandler();
 
 #endif

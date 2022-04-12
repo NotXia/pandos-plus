@@ -5,10 +5,9 @@
 
 /**
  * @brief Seleziona il prossimo processo da mandare avanti.
- * @param next_pcb Verrà inserito il processo successivo.
- * @param prio Verrà inserita la priorità del processo.
+ * @return Il processo selezionato.
 */
-static pcb_t *_getNextProcess(int *prio) {
+static pcb_t *_getNextProcess() {
     pcb_t *next_proc = NULL;
 
     /*
@@ -20,14 +19,12 @@ static pcb_t *_getNextProcess(int *prio) {
     if (!emptyProcQ(&high_readyqueue)) {
         if (headProcQ(&high_readyqueue) != process_to_skip || emptyProcQ(&low_readyqueue)) {
             next_proc = removeProcQ(&high_readyqueue);
-            *prio = PROCESS_PRIO_HIGH;
         }
     }
 
     // Prova ad estrare un processo a bassa priorità se non è riuscita ad estrarne uno ad alta
     if (next_proc == NULL) {
         next_proc = removeProcQ(&low_readyqueue);
-        *prio = PROCESS_PRIO_LOW;
     }
 
     process_to_skip = NULL;
@@ -42,8 +39,7 @@ void scheduler() {
     if (process_count == 0) { HALT(); }
 
     pcb_t *next_proc = NULL;
-    int next_prio;
-    next_proc = _getNextProcess(&next_prio);
+    next_proc = _getNextProcess();
 
     if (next_proc == NULL) {
         if (softblocked_count > 0) {
@@ -59,13 +55,12 @@ void scheduler() {
     else { // Esiste almeno un processo ready
         curr_process = next_proc;
 
-        if (next_prio == PROCESS_PRIO_LOW) {
-            next_proc->p_s.status = (next_proc->p_s.status) | TEBITON;
+        if (next_proc->p_prio == PROCESS_PRIO_LOW) {
+            next_proc->p_s.status = (next_proc->p_s.status) | TEBITON; // PLT attivato
             setTIMER(TIMESLICE); 
         }
         else {
-            // setTIMER(0xFFFFFFFF);
-            next_proc->p_s.status = (next_proc->p_s.status) & ~TEBITON;
+            next_proc->p_s.status = (next_proc->p_s.status) & ~TEBITON; // PLT disattivato
         }
         timerFlush();
 

@@ -1,5 +1,7 @@
 #include <initial.h>
 #include <pandos_types.h>
+#include <umps3/umps/arch.h>
+#include <umps3/umps/libumps.h>
 #include <scheduler.h>
 #include <exceptions.h>
 #include <utilities.h>
@@ -33,7 +35,7 @@ int *getIODeviceSemaphore(memaddr command_address) {
     /* A partire dall'indirizzo del campo command, si calcola l'indirizzo dell'inizio del device register da cui si ricava l'indice del semaforo */
     int sem_index;
     memaddr dev_register_address;
-    memaddr offset = 0;
+    memaddr offset = 0; // Per distinguere i sotto-registri dei terminali 
 
     if (command_address >= TERM0ADDR) { // Terminale
         // Per i terminali i due registri command distano 2 word e quindi la loro distanza è di 0x8 (0b1000)
@@ -50,22 +52,33 @@ int *getIODeviceSemaphore(memaddr command_address) {
         dev_register_address = command_address - 0x4;
     }
 
-    sem_index = ((dev_register_address - DEVREG_START) / DEVREG_SIZE) + offset;
+    sem_index = ((dev_register_address - DEV_REG_START) / DEV_REG_SIZE) + offset;
     return &semaphore_devices[sem_index];
 }
 
 /**
- * @brief Calcola la differenza il tempo attuale e il tempo dall'ultima chiamata.
+ * @brief Imposta l'interval timer considerando possibili ritardi accumulati.
+*/
+void resetIntervalTimer() {
+    // I ritardi vengono calcolati rispetti al tempo 0 del TOD
+    cpu_t curr_time;
+    STCK(curr_time);
+    LDIT(PSECOND - (curr_time % PSECOND));
+}
+
+
+/**
+ * @brief Calcola la differenza tra il tempo attuale e il tempo dall'ultima chiamata.
  * @return La differenza di tempo.
 */
 cpu_t timerFlush() {
     static cpu_t timer_start = 0;
+    cpu_t curr_time, diff;
 
-    cpu_t curr_time;
     STCK(curr_time);
-
-    cpu_t diff = curr_time - timer_start;
+    diff = curr_time - timer_start;
     STCK(timer_start); // Reset tempo di inizio
+
     return diff;
 }
 
@@ -76,10 +89,10 @@ cpu_t timerFlush() {
 static void _initPassUpVector() {
     passupvector_t *pass_up_vector = (passupvector_t *)PASSUPVECTOR;
     
-    pass_up_vector->tlb_refill_handler = (memaddr)uTLB_RefillHandler;
+    pass_up_vector->tlb_refill_handler  = (memaddr)uTLB_RefillHandler;
     pass_up_vector->tlb_refill_stackPtr = (memaddr)KERNELSTACK;
-    pass_up_vector->exception_handler = (memaddr)exceptionHandler;
-    pass_up_vector->exception_stackPtr = (memaddr)KERNELSTACK;
+    pass_up_vector->exception_handler   = (memaddr)exceptionHandler;
+    pass_up_vector->exception_stackPtr  = (memaddr)KERNELSTACK;
 }
 
 /**
@@ -108,7 +121,7 @@ static pcb_t *_createFirstProcess() {
     return first_proc;
 }
 
-int main(void) {
+void main() {
     _initPassUpVector();
     initPcbs();
     initASL();
@@ -118,12 +131,11 @@ int main(void) {
     mkEmptyProcQ(&low_readyqueue);
     curr_process = NULL;
     _initDeviceSemaphores();
-    LDIT(PSECOND);
+    resetIntervalTimer();
 
     insertProcQ(&low_readyqueue, _createFirstProcess());
     process_count++;
 
     scheduler();
-
-    return 0;
+    PANIC();
 }

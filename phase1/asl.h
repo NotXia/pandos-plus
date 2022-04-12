@@ -10,6 +10,6 @@ pcb_t *outBlocked(pcb_t *p);
 pcb_t *headBlocked(int *semAdd);
 
 pcb_t *semV(int *sem, pcb_t *process, state_t *state);
-void semP(int *sem, pcb_t *process, state_t *state);
+pcb_t *semP(int *sem, pcb_t *process, state_t *state);
 
 #endif

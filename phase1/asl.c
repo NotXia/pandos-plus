@@ -196,20 +196,25 @@ pcb_t *headBlocked(int *semAdd) {
  * @param sem Puntatore del semaforo.
  * @param process Puntatore del processo chiamante
  * @param state Puntatore allo stato attuale del processo.
+ * @return Il processo sbloccato. NULL se non esiste.
 */
-void semP(int *sem, pcb_t *process, state_t *state) {
+pcb_t *semP(int *sem, pcb_t *process, state_t *state) {
+    pcb_t *ready_proc = NULL;
+
     if (*sem == 0) {
         if (insertBlocked(sem, process)) { PANIC(); } // Non ci sono semafori disponibili
         setProcessBlocked(process, state);
         scheduler();
     }
     else if (headBlocked(sem) != NULL) {
-        pcb_t *ready_proc = removeBlocked(sem);
+        ready_proc = removeBlocked(sem);
         setProcessReady(ready_proc);
     }
     else {
         *sem = 0;
     }
+    
+    return ready_proc;
 }
 
 /**
@@ -220,7 +225,7 @@ void semP(int *sem, pcb_t *process, state_t *state) {
  * @return Il processo sbloccato. NULL se non esiste.
 */
 pcb_t *semV(int *sem, pcb_t *process, state_t *state) {
-    pcb_t *ready_proc;
+    pcb_t *ready_proc = NULL;
     
     if (*sem == 1) {
         if (insertBlocked(sem, process)) { PANIC(); } // Non ci sono semafori disponibili

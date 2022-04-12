@@ -9,6 +9,10 @@
 #define PARAMETER3(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a3
 #define SYSTEMCALL_RETURN(ret)  PREV_PROCESSOR_STATE->reg_v0 = ret
 
+// Le operazioni sui semafori delle system call fanno sempre riferimento al processo corrente
+#define V(sem)   semV(sem, curr_process, PREV_PROCESSOR_STATE)
+#define P(sem)   semP(sem, curr_process, PREV_PROCESSOR_STATE)
+
 /**
  * @brief System call per creare un processo figlio di quello corrente.
 */
@@ -46,7 +50,7 @@ static void _killProcess(pcb_t *process) {
     if (isSoftBlocked(process)) {
         softblocked_count--;
 
-        if (process->p_semAdd == &semaphore_it) { outBlocked(process); }
+        if (process->p_semAdd == &semaphore_it) { outBlocked(process); } // è sicuro rimuovere un processo in attesa di IT
     }
     else if (process->p_semAdd != NULL) {
         outBlocked(process);
@@ -78,10 +82,9 @@ static void _termProcess() {
         if (process_to_kill != NULL) {
             _killProcess(process_to_kill);
         }
-
-        if (!IS_ALIVE(curr_process)) {
-            scheduler();
-        }
+        
+        // Il pid scelto potrebbe essere un antenato del processo corrente
+        if (!IS_ALIVE(curr_process)) { scheduler(); }
     }    
 }
 
@@ -186,9 +189,9 @@ static void _passUpOrDieHandler(int index) {
 }
 
 /**
- * @brief Genera una trap.
+ * @brief Genera una trap per system call invalide.
 */
-static void _generateTrap() {
+static void _generateInvalidSystemCallTrap() {
     PREV_PROCESSOR_STATE->cause = (PREV_PROCESSOR_STATE->cause & 0xFFFFFF83) | 0x28; // Reserved instruction
     _passUpOrDieHandler(GENERALEXCEPT);
 }
@@ -202,8 +205,8 @@ static void _systemcallHandler() {
     }
 
     // Controllo permessi (kernel mode)
-    if ((SYSTEMCALL_CODE < 0) && (PREV_PROCESSOR_STATE->status & USERPON) != 0) {
-        _generateTrap();
+    if ((PREV_PROCESSOR_STATE->status & USERPON) != 0) {
+        _generateInvalidSystemCallTrap();
     }
 
     PREV_PROCESSOR_STATE->pc_epc += WORDLEN;
@@ -221,7 +224,7 @@ static void _systemcallHandler() {
         case(YIELD):         _yield();         break;
 
         default: // Codice system call non valida
-            _generateTrap();
+            _generateInvalidSystemCallTrap();
             break;
     }
 
