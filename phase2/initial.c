@@ -7,8 +7,6 @@
 void test();
 void uTLB_RefillHandler();
 
-cpu_t timer_start = 0;
-
 /**
  * @brief Indica se un processo è soft-blocked (quindi bloccato su un qualunque device).
  * @param p Puntatore al PCB del processo da controllare.
@@ -60,6 +58,8 @@ int *getIODeviceSemaphore(memaddr command_address) {
  * @return La differenza di tempo.
 */
 cpu_t timerFlush() {
+    static cpu_t timer_start = 0;
+
     cpu_t curr_time;
     STCK(curr_time);
 

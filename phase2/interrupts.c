@@ -5,12 +5,15 @@
 #include <scheduler.h>
 #include <utilities.h>
 
+#define DISABLE_PLT setSTATUS(getSTATUS() & ~TEBITON);
+#define ENABLE_PLT  setSTATUS(getSTATUS() | TEBITON);
+
 /**
  * @brief Gestisce l'uscita dall'interrupt handler.
 */
 static void _interruptHandlerExit() {
-    // Riattiva PLT
-    setSTATUS(getSTATUS() | TEBITON);
+    // Riattivazione PLT
+    ENABLE_PLT;
     timerFlush();
 
     if (curr_process != NULL) { 
@@ -138,11 +141,9 @@ static void _deviceHandler(int line) {
  * @brief Gestore degli interrupts.
 */
 void interruptHandler() {
-    // Disattiva PLT
-    setSTATUS(getSTATUS() & ~TEBITON);
-    if (curr_process != NULL) {
-        curr_process->p_time += timerFlush();
-    }
+    // Il tempo di gestione degli interrupt non viene accumulato nel tempo CPU del processo corrente
+    if (curr_process != NULL) { curr_process->p_time += timerFlush(); }
+    DISABLE_PLT;
 
     // Priorità: PLT > IT > Disco > Flash drive > Stampanti > Terminali (ricezione) > Terminali (trasmissione)
     unsigned int ip = PREV_PROCESSOR_STATE->cause & CAUSE_IP_MASK;
