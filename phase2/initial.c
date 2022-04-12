@@ -2,6 +2,7 @@
 #include <pandos_types.h>
 #include <scheduler.h>
 #include <exceptions.h>
+#include <utilities.h>
 
 // Funzioni fornite dal test
 void test();
@@ -31,8 +32,8 @@ int isSoftBlocked(pcb_t *p) {
 int *getIODeviceSemaphore(memaddr command_address) {
     /* A partire dall'indirizzo del campo command, si calcola l'indirizzo dell'inizio del device register da cui si ricava l'indice del semaforo */
     int sem_index;
-    int dev_register_address;
-    int offset = 0;
+    memaddr dev_register_address;
+    memaddr offset = 0;
 
     if (command_address >= TERM0ADDR) { // Terminale
         // Per i terminali i due registri command distano 2 word e quindi la loro distanza è di 0x8 (0b1000)
@@ -49,7 +50,7 @@ int *getIODeviceSemaphore(memaddr command_address) {
         dev_register_address = command_address - 0x4;
     }
 
-    sem_index = ((dev_register_address - TERM0ADDR) / DEVREG_SIZE) + offset;
+    sem_index = ((dev_register_address - DEVREG_START) / DEVREG_SIZE) + offset;
     return &semaphore_devices[sem_index];
 }
 
