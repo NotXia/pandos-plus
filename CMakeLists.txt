@@ -5,7 +5,7 @@
 cmake_minimum_required(VERSION 3.3)
 project(
 	PandOS+
-	VERSION 1.0
+	VERSION 2.0
 	LANGUAGES C ASM
 )
 
@@ -20,15 +20,7 @@ add_subdirectory("phase1")
 add_subdirectory("phase2")
 
 # add_subdirectory("phase1/test")
-# add_subdirectory("phase2/test")
-
-add_executable(kernel phase2/initial.c)
-target_link_libraries(kernel crtso libumps initial)
-set_target_properties(
-    kernel
-    PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-)
+add_subdirectory("phase2/test")
 
 # Esegue umps3-elf2umps
 # Converte i file oggetto ELF prodotti dalla cross-compilazione in file oggetto riconosciuti da umps3

@@ -1,12 +1,9 @@
 #include <exceptions.h>
 #include <umps3/umps/arch.h>
 #include <umps3/umps/libumps.h>
-#include <scheduler.h>
 #include <initial.h>
-#include <asl.h>
+#include <scheduler.h>
 #include <utilities.h>
-
-// #define RETURN_TO_CURRENT_PROCESS       if (curr_process != NULL) { LDST(PREV_PROCESSOR_STATE); } else { scheduler(); }
 
 /**
  * @brief Gestisce l'uscita dall'interrupt handler.
@@ -69,7 +66,6 @@ static unsigned int _getDeviceInterruptBitmap(int line) {
     devregarea_t *bus_reg_area = (devregarea_t*)BUS_REG_RAM_BASE;
     return bus_reg_area->interrupt_dev[line-3];
 }
-
 
 /**
  * @brief Gestisce il valore di ritorno di un device.
@@ -137,7 +133,6 @@ static void _deviceHandler(int line) {
         device_number++;
     }
 }
-
 
 /**
  * @brief Gestore degli interrupts.

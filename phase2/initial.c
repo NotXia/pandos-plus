@@ -1,15 +1,11 @@
-#include "initial.h"
-#include <asl.h>
-#include <pandos_const.h>
+#include <initial.h>
 #include <pandos_types.h>
-#include <exceptions.h>
-#include <interrupts.h>
 #include <scheduler.h>
-#include "test/p2test.0.2.c"
+#include <exceptions.h>
 
-// Forward declaration
-extern void test();
-extern void uTLB_RefillHandler();
+// Funzioni fornite dal test
+void test();
+void uTLB_RefillHandler();
 
 cpu_t timer_start = 0;
 

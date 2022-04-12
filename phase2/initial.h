@@ -1,8 +1,8 @@
 #ifndef PANDOS_INITIAL_H_INCLUDED
 #define PANDOS_INITIAL_H_INCLUDED
 
-#include <umps3/umps/libumps.h>
 #include <pcb.h>
+#include <asl.h>
 
 unsigned int process_count;
 unsigned int softblocked_count;

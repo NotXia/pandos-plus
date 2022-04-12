@@ -1,9 +1,6 @@
 #include <exceptions.h>
 #include <umps3/umps/libumps.h>
-#include <initial.h>
-#include <asl.h>
 #include <scheduler.h>
-#include <interrupts.h>
 #include <utilities.h>
 
 #define SYSTEMCALL_CODE         ((int)PREV_PROCESSOR_STATE->reg_a0)

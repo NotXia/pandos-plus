@@ -1,7 +1,7 @@
 #include <scheduler.h>
+#include <umps3/umps/libumps.h>
 #include <initial.h>
 #include <utilities.h>
-#include <umps3/umps/libumps.h>
 
 /**
  * @brief Seleziona il prossimo processo da mandare avanti.
