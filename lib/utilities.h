@@ -3,7 +3,4 @@
 
 void memcpy(void *dest, const void *src, unsigned int n);
 
-void klog_print(char *str);
-void klog_print_hex(unsigned int num);
-
 #endif
