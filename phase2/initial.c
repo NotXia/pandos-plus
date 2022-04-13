@@ -7,8 +7,8 @@
 #include <utilities.h>
 
 // Funzioni fornite dal test
-void test();
-void uTLB_RefillHandler();
+extern void test();
+extern void uTLB_RefillHandler();
 
 /**
  * @brief Indica se un processo è soft-blocked (quindi bloccato su un qualunque device).
@@ -28,8 +28,8 @@ int isSoftBlocked(pcb_t *p) {
 
 /**
  * @brief Restituisce il semaforo associato ad un dispositivo di I/O ricercato per indirizzo del campo command nel device register.
- * @param address indirizzo del campo command nel device register interessato.
- * @return Puntatore al semaforo.
+ * @param command_address indirizzo del campo command nel device register interessato.
+ * @return Puntatore al semaforo di riferimento.
 */
 int *getIODeviceSemaphore(memaddr command_address) {
     /* A partire dall'indirizzo del campo command, si calcola l'indirizzo dell'inizio del device register da cui si ricava l'indice del semaforo */
@@ -39,7 +39,7 @@ int *getIODeviceSemaphore(memaddr command_address) {
 
     if (command_address >= TERM0ADDR) { // Terminale
         // Per i terminali i due registri command distano 2 word e quindi la loro distanza è di 0x8 (0b1000)
-        // Quindi si possono differenziare tra loro valutando il valore del 4° bit
+        // Per cui si possono differenziare valutando il valore del 4° bit
         if ((command_address & 0b1000) == 0b1000) { // Ricezione
             dev_register_address = command_address - 0x4;
         } 
@@ -57,7 +57,7 @@ int *getIODeviceSemaphore(memaddr command_address) {
 }
 
 /**
- * @brief Imposta l'interval timer considerando possibili ritardi accumulati.
+ * @brief Imposta l'interval timer considerando i possibili ritardi accumulati.
 */
 void resetIntervalTimer() {
     // I ritardi vengono calcolati rispetti al tempo 0 del TOD
@@ -66,9 +66,8 @@ void resetIntervalTimer() {
     LDIT(PSECOND - (curr_time % PSECOND));
 }
 
-
 /**
- * @brief Calcola la differenza tra il tempo attuale e il tempo dall'ultima chiamata.
+ * @brief Calcola la differenza tra il tempo attuale e il tempo dall'ultima chiamata (similmente ad un cronometro).
  * @return La differenza di tempo.
 */
 cpu_t timerFlush() {
@@ -77,14 +76,22 @@ cpu_t timerFlush() {
 
     STCK(curr_time);
     diff = curr_time - timer_start;
+    
     STCK(timer_start); // Reset tempo di inizio
 
     return diff;
 }
 
+/**
+ * @brief Aggiorna il tempo di CPU accumulato del processo corrente.
+*/
+void updateProcessCPUTime() {
+    curr_process->p_time += timerFlush();
+}
+
 
 /**
- * @brief Inizializza il pass up vector
+ * @brief Inizializza il pass up vector.
 */
 static void _initPassUpVector() {
     passupvector_t *pass_up_vector = (passupvector_t *)PASSUPVECTOR;
@@ -106,8 +113,8 @@ static void _initDeviceSemaphores() {
 }
 
 /**
- * @brief Crea il primo processo
- * @return Puntatore al PCB del processo creato
+ * @brief Crea il primo processo.
+ * @return Puntatore al PCB del processo creato.
 */
 static pcb_t *_createFirstProcess() {
     pcb_t *first_proc = allocPcb();

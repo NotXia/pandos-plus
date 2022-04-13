@@ -43,7 +43,7 @@ static pid_t _generatePid() {
         /* Gestione collisioni */
         int curr_greater_pid = container_of(pid_list_h.prev, pcb_t, pid_list)->p_pid; // L'ultimo elemento della lista dei pid è il più grande
 
-        if (curr_greater_pid >= curr_pid) { // Se minore, sicuramente non ci sono collisioni (lista dei pid ordinata)
+        if (curr_greater_pid >= curr_pid) { // Se minore, sicuramente non ci sono collisioni (la lista dei pid è ordinata)
             while (getProcessByPid(curr_pid) != NULL) {
                 curr_pid++;
             }
@@ -73,7 +73,7 @@ static void _addPid(pcb_t *p) {
     pcb_t *iter;
 
     // Inserimento per mantenere la lista ordinata in senso crescente per pid
-    // Dato che i pid sono crescenti, si inserisce scorrendo la lista al contrario per ottimizzare
+    // Dato che i pid sono (tendenzialmente) crescenti, si inserisce scorrendo la lista al contrario per maggiore ottimizzazione
     list_for_each_entry_reverse(iter, &pid_list_h, pid_list) {
         if (p->p_pid >= iter->p_pid) {
             __list_add(&p->pid_list, &iter->pid_list, iter->pid_list.next);

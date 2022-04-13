@@ -3,6 +3,8 @@
 #include <scheduler.h>
 #include <utilities.h>
 
+#define EXCEPTION_CODE          CAUSE_GET_EXCCODE(PREV_PROCESSOR_STATE->cause)
+
 #define SYSTEMCALL_CODE         ((int)PREV_PROCESSOR_STATE->reg_a0)
 #define PARAMETER1(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a1
 #define PARAMETER2(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a2
@@ -52,7 +54,7 @@ static void _killProcess(pcb_t *process) {
 
         if (process->p_semAdd == &semaphore_it) { outBlocked(process); } // è sicuro rimuovere un processo in attesa di IT
     }
-    else if (process->p_semAdd != NULL) {
+    else if (process->p_semAdd != NULL) { // Il processo aveva chiamato una P e si era bloccato
         outBlocked(process);
     }
 
@@ -122,7 +124,7 @@ static void _doIO() {
  * @brief System call che restituisce il tempo di CPU del processo.
 */
 static void _getCPUTime() {
-    curr_process->p_time += timerFlush();
+    updateProcessCPUTime();
     SYSTEMCALL_RETURN(curr_process->p_time);
 }
 
@@ -164,10 +166,10 @@ static void _getProcessId() {
  * @brief System call per rilasciare la CPU e tornare ready.
 */
 static void _yield() {
-    curr_process->p_time += timerFlush();
     curr_process->p_s = *PREV_PROCESSOR_STATE;
     process_to_skip = curr_process;
     setProcessReady(curr_process);
+    updateProcessCPUTime();
 
     curr_process = NULL;
     scheduler();
@@ -200,15 +202,14 @@ static void _generateInvalidSystemCallTrap() {
  * @brief Gestore delle system call.
 */
 static void _systemcallHandler() {
-    if (SYSTEMCALL_CODE >= 1) {
-        _passUpOrDieHandler(GENERALEXCEPT); 
-    }
+    if (SYSTEMCALL_CODE >= 1) { _passUpOrDieHandler(GENERALEXCEPT); }
 
     // Controllo permessi (kernel mode)
     if ((PREV_PROCESSOR_STATE->status & USERPON) != 0) {
         _generateInvalidSystemCallTrap();
     }
 
+    // Incremento PC
     PREV_PROCESSOR_STATE->pc_epc += WORDLEN;
 
     switch (SYSTEMCALL_CODE) {
@@ -236,19 +237,19 @@ static void _systemcallHandler() {
 */
 void exceptionHandler() {
     switch (EXCEPTION_CODE) {
-        // Interrupts
+        // Interrupt
         case(0):
             interruptHandler();
             break;
 
-        // TLB exceptions
+        // TLB exception
         case(1): 
         case(2):
         case(3):
             _passUpOrDieHandler(PGFAULTEXCEPT);
             break;
 
-        // Program traps
+        // Program trap
         case(4):
         case(5):
         case(6):

@@ -3,17 +3,13 @@
 #include <umps3/umps/libumps.h>
 #include <initial.h>
 #include <scheduler.h>
-#include <utilities.h>
-
-#define DISABLE_PLT setSTATUS(getSTATUS() & ~TEBITON);
-#define ENABLE_PLT  setSTATUS(getSTATUS() | TEBITON);
+#include <utilities.h>  
 
 /**
  * @brief Gestisce l'uscita dall'interrupt handler.
 */
 static void _interruptHandlerExit() {
-    // Riattivazione PLT
-    ENABLE_PLT;
+    setSTATUS(getSTATUS() | TEBITON); // Riattivazione PLT
     timerFlush();
 
     if (curr_process != NULL) { 
@@ -31,9 +27,9 @@ static void _PLTHandler() {
     setTIMER(TIMESLICE); // Ack PLT (verrà impostato nuovamente nello scheduler)
 
     curr_process->p_s = *PREV_PROCESSOR_STATE;
-    curr_process->p_time += timerFlush();
-
+    updateProcessCPUTime();
     setProcessReady(curr_process);
+
     curr_process = NULL;
     scheduler();
 }
@@ -97,6 +93,7 @@ static void _nonTerminalHandler(int line, int device_number) {
 static void _terminalHandler(int device_number) {
     termreg_t *device_register = (termreg_t *)DEV_REG_ADDR(IL_TERMINAL, device_number);
 
+    // Status 5 = Character Received / Character Transmitted
     if (device_register->recv_status == 5) { // Ricezione
         _deviceInterruptReturn(&device_register->recv_status, &device_register->recv_command);
     }
@@ -132,12 +129,12 @@ static void _deviceHandler(int line) {
 }
 
 /**
- * @brief Gestore degli interrupts.
+ * @brief Gestore degli interrupt.
 */
 void interruptHandler() {
     // Il tempo di gestione degli interrupt non viene accumulato nel tempo CPU del processo corrente
-    if (curr_process != NULL) { curr_process->p_time += timerFlush(); }
-    DISABLE_PLT;
+    if (curr_process != NULL) { updateProcessCPUTime(); }
+    setSTATUS(getSTATUS() & ~TEBITON); // Disattivazione PLT
 
     // Priorità: PLT > IT > Disco > Flash drive > Stampanti > Terminali (ricezione) > Terminali (trasmissione)
     unsigned int ip = PREV_PROCESSOR_STATE->cause & CAUSE_IP_MASK;

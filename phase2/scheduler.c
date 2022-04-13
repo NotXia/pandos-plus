@@ -4,7 +4,7 @@
 #include <utilities.h>
 
 /**
- * @brief Seleziona il prossimo processo da mandare avanti.
+ * @brief Seleziona il prossimo processo da mandare in esecuzione.
  * @return Il processo selezionato.
 */
 static pcb_t *_getNextProcess() {
@@ -33,38 +33,34 @@ static pcb_t *_getNextProcess() {
 
 
 /**
- * @brief Manda in esecuzione il prossimo processo oppure gestisce i casi di attesa/errore.
+ * @brief Manda in esecuzione il prossimo processo oppure gestisce i casi di attesa/deadlock.
 */
 void scheduler() {
     if (process_count == 0) { HALT(); }
 
-    pcb_t *next_proc = NULL;
-    next_proc = _getNextProcess();
+    curr_process = _getNextProcess();
 
-    if (next_proc == NULL) {
-        if (softblocked_count > 0) {
-            curr_process = NULL;
+    if (curr_process == NULL) {
+        if (softblocked_count > 0) { // Processi in attesa di I/O
             // Abilita interrupt + disabilita PLT
             setSTATUS((getSTATUS() | IECON | IMON) & ~TEBITON);
             WAIT(); 
         }
-        else {
+        else { // Deadlock
             PANIC();
         }
     }
     else { // Esiste almeno un processo ready
-        curr_process = next_proc;
-
-        if (next_proc->p_prio == PROCESS_PRIO_LOW) {
-            next_proc->p_s.status = (next_proc->p_s.status) | TEBITON; // PLT attivato
+        if (curr_process->p_prio == PROCESS_PRIO_LOW) {
+            curr_process->p_s.status = (curr_process->p_s.status) | TEBITON; // PLT attivato
             setTIMER(TIMESLICE); 
         }
         else {
-            next_proc->p_s.status = (next_proc->p_s.status) & ~TEBITON; // PLT disattivato
+            curr_process->p_s.status = (curr_process->p_s.status) & ~TEBITON; // PLT disattivato
         }
         timerFlush();
 
-        LDST(&next_proc->p_s);
+        LDST(&curr_process->p_s);
     }
 
 }
@@ -75,12 +71,11 @@ void scheduler() {
  * @param state Puntatore allo stato da salvare nel processo.
 */
 void setProcessBlocked(pcb_t *p, state_t *state) {
-    // Oss: dato che non è prevista la possibilità di bloccare un processo nella ready queue, l'unico che è possibile bloccare è il corrente
-    // Controllo implementato per maggiore coerenza ma la condizione non si verificherà mai
-    if (p != curr_process) { outProcQ(GET_READY_QUEUE(p->p_prio), p); }
+    /* Oss: dato che non è prevista la possibilità di bloccare un processo nella ready queue, l'unico che è possibile bloccare è il corrente
+            Quindi non è necessario fare nessun controllo sulle ready queue */
     
     curr_process->p_s = *state;
-    curr_process->p_time += timerFlush();
+    updateProcessCPUTime();
 }
 
 

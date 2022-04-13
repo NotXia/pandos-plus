@@ -194,7 +194,7 @@ pcb_t *headBlocked(int *semAdd) {
 /**
  * @brief Esegue la P su un semaforo binario.
  * @param sem Puntatore del semaforo.
- * @param process Puntatore del processo chiamante
+ * @param process Puntatore al processo chiamante.
  * @param state Puntatore allo stato attuale del processo.
  * @return Il processo sbloccato. NULL se non esiste.
 */
@@ -220,7 +220,7 @@ pcb_t *semP(int *sem, pcb_t *process, state_t *state) {
 /**
  * @brief Esegue la V su un semaforo binario.
  * @param sem Puntatore del semaforo.
- * @param process Puntatore del processo chiamante
+ * @param process Puntatore al processo chiamante.
  * @param state Puntatore allo stato attuale del processo.
  * @return Il processo sbloccato. NULL se non esiste.
 */
