@@ -19,9 +19,9 @@ int isSoftBlocked(pcb_t *p) {
     if (p->p_semAdd == NULL) { return FALSE; }
 
     if (p->p_semAdd == &semaphore_it) { return TRUE; }
-    for (int i=0; i<TOTAL_IO_DEVICES; i++) {
-        if (p->p_semAdd == &semaphore_devices[i]) { return TRUE; }
-    }
+
+    // Il semaforo fa riferimento ad un device di I/O
+    if ((p->p_semAdd >= &semaphore_devices[0]) && (p->p_semAdd <= &semaphore_devices[TOTAL_IO_DEVICES-1])) { return TRUE; }
 
     return FALSE;
 }
