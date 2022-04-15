@@ -5,7 +5,7 @@
 cmake_minimum_required(VERSION 3.3)
 project(
 	PandOS+
-	VERSION 1.0
+	VERSION 2.0
 	LANGUAGES C ASM
 )
 
@@ -15,9 +15,12 @@ add_library(crtso STATIC ${UMPS_SRC}/crtso.S)
 add_library(libumps STATIC ${UMPS_SRC}/libumps.S)
 
 include_directories("lib")
+add_subdirectory("lib")
 add_subdirectory("phase1")
+add_subdirectory("phase2")
 
-add_subdirectory("phase1/test")
+# add_subdirectory("phase1/test")
+add_subdirectory("phase2/test")
 
 # Esegue umps3-elf2umps
 # Converte i file oggetto ELF prodotti dalla cross-compilazione in file oggetto riconosciuti da umps3

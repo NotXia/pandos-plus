@@ -1,15 +1,19 @@
 #include <exceptions.h>
 #include <umps3/umps/libumps.h>
-#include <initial.h>
-#include <asl.h>
 #include <scheduler.h>
-#include <interrupts.h>
+#include <utilities.h>
 
-#define SYSTEMCALL_CODE         PREV_PROCESSOR_STATE->reg_a0
+#define EXCEPTION_CODE          CAUSE_GET_EXCCODE(PREV_PROCESSOR_STATE->cause)
+
+#define SYSTEMCALL_CODE         ((int)PREV_PROCESSOR_STATE->reg_a0)
 #define PARAMETER1(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a1
 #define PARAMETER2(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a2
 #define PARAMETER3(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a3
 #define SYSTEMCALL_RETURN(ret)  PREV_PROCESSOR_STATE->reg_v0 = ret
+
+// Le operazioni sui semafori delle system call fanno sempre riferimento al processo corrente
+#define V(sem)   semV(sem, curr_process, PREV_PROCESSOR_STATE)
+#define P(sem)   semP(sem, curr_process, PREV_PROCESSOR_STATE)
 
 /**
  * @brief System call per creare un processo figlio di quello corrente.
@@ -27,6 +31,7 @@ static void _createProcess() {
         return;
     }
 
+    process_count++;
     new_proc->p_s = *statep;
     new_proc->p_prio = (prio == 0 ? PROCESS_PRIO_LOW : PROCESS_PRIO_HIGH);
     new_proc->p_supportStruct = supportp;
@@ -47,9 +52,9 @@ static void _killProcess(pcb_t *process) {
     if (isSoftBlocked(process)) {
         softblocked_count--;
 
-        if (process->p_semAdd == semaphore_it) { outBlocked(process); }
+        if (process->p_semAdd == &semaphore_it) { outBlocked(process); } // è sicuro rimuovere un processo in attesa di IT
     }
-    else {
+    else if (process->p_semAdd != NULL) { // Il processo aveva chiamato una P e si era bloccato
         outBlocked(process);
     }
 
@@ -79,6 +84,9 @@ static void _termProcess() {
         if (process_to_kill != NULL) {
             _killProcess(process_to_kill);
         }
+        
+        // Il pid scelto potrebbe essere un antenato del processo corrente
+        if (!IS_ALIVE(curr_process)) { scheduler(); }
     }    
 }
 
@@ -116,7 +124,7 @@ static void _doIO() {
  * @brief System call che restituisce il tempo di CPU del processo.
 */
 static void _getCPUTime() {
-    curr_process->p_time += timerFlush();
+    updateProcessCPUTime();
     SYSTEMCALL_RETURN(curr_process->p_time);
 }
 
@@ -125,14 +133,14 @@ static void _getCPUTime() {
 */
 static void _clockWait() {
     softblocked_count++;
-    P(semaphore_it);
+    P(&semaphore_it);
 }
 
 /**
  * @brief System call che restituisce il puntatore alla struttura di supporto del processo.
 */
 static void _getSupportPtr() {
-    SYSTEMCALL_RETURN(curr_process->p_supportStruct);
+    SYSTEMCALL_RETURN((memaddr)curr_process->p_supportStruct);
 }
 
 /**
@@ -158,49 +166,13 @@ static void _getProcessId() {
  * @brief System call per rilasciare la CPU e tornare ready.
 */
 static void _yield() {
-    curr_process->p_time += timerFlush();
-    setProcessReady(curr_process);
+    curr_process->p_s = *PREV_PROCESSOR_STATE;
     process_to_skip = curr_process;
-}
+    setProcessReady(curr_process);
+    updateProcessCPUTime();
 
-/**
- * @brief Genera una trap.
-*/
-static void _generateTrap() {
-    PREV_PROCESSOR_STATE->cause = (PREV_PROCESSOR_STATE->cause & 0xFFFFFF83) | 0x28; // Reserved instruction
-    // _passUpOrDieHandler(GENERALEXCEPT);
-}
-
-/**
- * @brief Gestore delle system call.
-*/
-static void _systemcallHandler() {
-    // Controllo permessi (kernel mode)
-    if ((SYSTEMCALL_CODE < 0) && ((PREV_PROCESSOR_STATE->status & KUC_BIT) != 0)) {
-        _generateTrap();
-    }
-
-    PREV_PROCESSOR_STATE->pc_epc += WORDLEN;
-    // curr_process->p_s.pc_epc += 4;
-
-    switch (SYSTEMCALL_CODE) {
-        case(CREATEPROCESS): _createProcess(); break;
-        case(TERMPROCESS):   _termProcess();   break;
-        case(PASSEREN):      _passeren();      break;
-        case(VERHOGEN):      _verhogen();      break;
-        case(DOIO):          _doIO();          break;
-        case(GETTIME):       _getCPUTime();    break;
-        case(CLOCKWAIT):     _clockWait();     break;
-        case(GETSUPPORTPTR): _getSupportPtr(); break;
-        case(GETPROCESSID):  _getProcessId();  break;
-        case(YIELD):         _yield();         break;
-
-        default: // Codice system call non valida
-            _generateTrap();
-            break;
-    }
-
-    LDST(PREV_PROCESSOR_STATE);
+    curr_process = NULL;
+    scheduler();
 }
 
 /**
@@ -219,23 +191,65 @@ static void _passUpOrDieHandler(int index) {
 }
 
 /**
+ * @brief Genera una trap per system call invalide.
+*/
+static void _generateInvalidSystemCallTrap() {
+    PREV_PROCESSOR_STATE->cause = (PREV_PROCESSOR_STATE->cause & 0xFFFFFF83) | 0x28; // Reserved instruction
+    _passUpOrDieHandler(GENERALEXCEPT);
+}
+
+/**
+ * @brief Gestore delle system call.
+*/
+static void _systemcallHandler() {
+    if (SYSTEMCALL_CODE >= 1) { _passUpOrDieHandler(GENERALEXCEPT); }
+
+    // Controllo permessi (kernel mode)
+    if ((PREV_PROCESSOR_STATE->status & USERPON) != 0) {
+        _generateInvalidSystemCallTrap();
+    }
+
+    // Incremento PC
+    PREV_PROCESSOR_STATE->pc_epc += WORDLEN;
+
+    switch (SYSTEMCALL_CODE) {
+        case(CREATEPROCESS): _createProcess(); break;
+        case(TERMPROCESS):   _termProcess();   break;
+        case(PASSEREN):      _passeren();      break;
+        case(VERHOGEN):      _verhogen();      break;
+        case(DOIO):          _doIO();          break;
+        case(GETTIME):       _getCPUTime();    break;
+        case(CLOCKWAIT):     _clockWait();     break;
+        case(GETSUPPORTPTR): _getSupportPtr(); break;
+        case(GETPROCESSID):  _getProcessId();  break;
+        case(YIELD):         _yield();         break;
+
+        default: // Codice system call non valida
+            _generateInvalidSystemCallTrap();
+            break;
+    }
+
+    LDST(PREV_PROCESSOR_STATE);
+}
+
+/**
  * @brief Gestore delle eccezioni.
 */
 void exceptionHandler() {
     switch (EXCEPTION_CODE) {
-        // Interrupts
+        // Interrupt
         case(0):
             interruptHandler();
             break;
 
-        // TLB exceptions
+        // TLB exception
         case(1): 
         case(2):
         case(3):
             _passUpOrDieHandler(PGFAULTEXCEPT);
             break;
 
-        // Program traps
+        // Program trap
         case(4):
         case(5):
         case(6):

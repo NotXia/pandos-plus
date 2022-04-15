@@ -6,6 +6,7 @@ add_library(pcb pcb.c)
 
 add_library(asl asl.c)
 target_link_libraries(asl PRIVATE pcb)
+target_link_libraries(asl PRIVATE scheduler)
 
 set_target_properties(
     pcb asl

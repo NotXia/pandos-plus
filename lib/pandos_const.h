@@ -62,7 +62,6 @@
 #define IMON        0x0000FF00
 #define TEBITON     0x08000000
 #define DISABLEINTS 0xFFFFFFFE
-#define KUC_BIT     0x00000002
 
 /* Cause register constants */
 #define GETEXECCODE    0x0000007C
@@ -174,8 +173,6 @@
 
 
 #define TERM0ADDR       0x10000254
-#define DEVREG_START    0x10000054
-#define DEVREG_SIZE     0x10
 
 
 #endif

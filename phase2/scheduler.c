@@ -1,15 +1,13 @@
 #include <scheduler.h>
-#include <initial.h>
 #include <umps3/umps/libumps.h>
-
-to_ignore = NULL; // Per gestire i processi che chiamano yield
+#include <initial.h>
+#include <utilities.h>
 
 /**
- * @brief Seleziona il prossimo processo da mandare avanti.
- * @param next_pcb Verrà inserito il processo successivo.
- * @param prio Verrà inserita la priorità del processo.
+ * @brief Seleziona il prossimo processo da mandare in esecuzione.
+ * @return Il processo selezionato.
 */
-static void _getNextProcess(pcb_t *next_pcb, int *prio) {
+static pcb_t *_getNextProcess() {
     pcb_t *next_proc = NULL;
 
     /*
@@ -18,52 +16,51 @@ static void _getNextProcess(pcb_t *next_pcb, int *prio) {
         - il processo in testa è diverso da quello da ignorare (yield)
         - la coda dei processi a bassa priorità è vuota e quindi necessariamente seleziona un processo ad alta priorità (anche se da ignorare)
     */
-    if (!emptyProcQ(high_readyqueue)) {
-        if (headProcQ(high_readyqueue) != to_ignore || emptyProcQ(low_readyqueue)) {
-            next_proc = removeProcQ(high_readyqueue);
-            *prio = PROCESS_PRIO_HIGH;
+    if (!emptyProcQ(&high_readyqueue)) {
+        if (headProcQ(&high_readyqueue) != process_to_skip || emptyProcQ(&low_readyqueue)) {
+            next_proc = removeProcQ(&high_readyqueue);
         }
     }
 
     // Prova ad estrare un processo a bassa priorità se non è riuscita ad estrarne uno ad alta
     if (next_proc == NULL) {
-        next_proc = removeProcQ(low_readyqueue);
-        *prio = PROCESS_PRIO_LOW;
+        next_proc = removeProcQ(&low_readyqueue);
     }
 
-    to_ignore = NULL;
-
+    process_to_skip = NULL;
     return next_proc;
 }
 
+
 /**
- * @brief Manda in esecuzione il prossimo processo oppure gestisce i casi di attesa/errore.
+ * @brief Manda in esecuzione il prossimo processo oppure gestisce i casi di attesa/deadlock.
 */
 void scheduler() {
     if (process_count == 0) { HALT(); }
 
-    pcb_t *next_proc;
-    int next_prio;
+    curr_process = _getNextProcess();
 
-    _getNextProcess(next_proc, &next_prio);
-
-    if (next_proc == NULL) {
-        if (softblocked_count > 0) {
-            curr_process = NULL;
+    if (curr_process == NULL) {
+        if (softblocked_count > 0) { // Processi in attesa di I/O
             // Abilita interrupt + disabilita PLT
             setSTATUS((getSTATUS() | IECON | IMON) & ~TEBITON);
             WAIT(); 
         }
-        else { 
-            PANIC(); 
+        else { // Deadlock
+            PANIC();
         }
     }
     else { // Esiste almeno un processo ready
-        curr_process = next_proc;
-
-        if (next_prio == PROCESS_PRIO_LOW) { setTIMER(TIMESLICE); }
+        if (curr_process->p_prio == PROCESS_PRIO_LOW) {
+            curr_process->p_s.status = (curr_process->p_s.status) | TEBITON; // PLT attivato
+            setTIMER(TIMESLICE); 
+        }
+        else {
+            curr_process->p_s.status = (curr_process->p_s.status) & ~TEBITON; // PLT disattivato
+        }
         timerFlush();
-        LDST(&next_proc->p_s);
+
+        LDST(&curr_process->p_s);
     }
 
 }
@@ -74,12 +71,11 @@ void scheduler() {
  * @param state Puntatore allo stato da salvare nel processo.
 */
 void setProcessBlocked(pcb_t *p, state_t *state) {
-    // Oss: dato che non è prevista la possibilità di bloccare un processo nella ready queue, l'unico che è possibile bloccare è il corrente
-    // Controllo implementato per maggiore coerenza ma la condizione non si verificherà mai
-    if (p != curr_process) { outProcQ(GET_READY_QUEUE(p->p_prio), p); }
+    /* Oss: dato che non è prevista la possibilità di bloccare un processo nella ready queue, l'unico che è possibile bloccare è il corrente
+            Quindi non è necessario fare nessun controllo sulle ready queue */
     
     curr_process->p_s = *state;
-    curr_process->p_time += timerFlush();
+    updateProcessCPUTime();
 }
 
 
