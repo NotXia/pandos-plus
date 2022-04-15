@@ -10,6 +10,7 @@
 \usepackage{subfig}
 \usepackage{mwe}
 \usepackage{hyperref}
+\usepackage{array}
 
 \usepackage[
 backend=biber,
@@ -87,13 +88,55 @@ sorting=none
 
 \section{Introduzione}
 La seconda fase del progetto \texttt{PandOS+} consiste nell'implementazione del livello 3 dell'architettura astratta di un sistema operativo proposta da Dijkstra. \\
-In particolare è necessario implementare il kernel del sistema operativo.
+In particolare è necessario implementare le funzionalità del kernel per gestire la schedulazione dei processi e la gestione delle eccezioni.
+
+\subsection{Organizzazione dei file}
+I file coinvolti per l'implementazione delle specifiche sono i seguenti:
+\begin{center}
+    \begin{tabular}{ | m{3cm} | m{10cm} | } 
+        \hline
+        \texttt{pcb}          & È stata aggiunta la gestione dei \texttt{pid} dei processi. \\ 
+        \hline
+        \texttt{asl}          & Sono state aggiunte le operazioni \texttt{P}/\texttt{V} sui semafori. \\ 
+        \hline
+        \texttt{initial}      & Gestisce la fase di inizializzazione del sistema e fornisce alcune funzioni ausiliare di utilità generale. \\ 
+        \hline
+        \texttt{scheduler}    & Implementa lo scheduler. \\ 
+        \hline
+        \texttt{exceptions}   & Gestisce lo "smistamento" le eccezioni ai relativi gestori. Implementa il gestore delle system call. \\ 
+        \hline
+        \texttt{interrupts}   & Implementa il gestore delle interrupt. \\ 
+        \hline
+        \texttt{utilities}    & Contiene l'implementazione di \texttt{memcpy}. \\ 
+        \hline
+    \end{tabular}
+\end{center}
+
+\section{Gestione dei \texttt{pid}}
+I pid vengono generati in ordine crescente a partire da 1.\\
+La mappatura dei pid validi in un dato istante avviene tramite una lista bidirezionale implementata attraverso un nuovo campo aggiunto della struttura \texttt{pcb\_t}.
+Tale lista è ordinata in senso crescente per migliorare le prestazioni di ricerca e permette l'inserimento in tempo costante per il primo ciclo di pid (dopo un wraparound non è garantita questa proprietà).
+\subsection{Possibili miglioramenti}
+Una possibile alternativa a tale implementazione è basata sugli alberi di ricerca che permettono di ottenere maggiori prestazioni nella fase di ricerca. \\
+La scelta di utilizzare una lista ordinata è stata fatta considerando un trade-off tra semplicità di implementazione e prestazioni che rimangono valide in quanto il numero massimo di processi attivi ha un limite superiore molto contenuto.
+
+\section{Gestione dei semafori dei device}
+
+
+\section{Gestione contabilizzazione del tempo di CPU}
+
+
 \section{Inizializzazione del sistema}
+
+
 \section{Scheduling dei processi}
+
+
 \section{Gestione delle eccezioni}
 
+
 \newpage
-\printbibliography[title={Bibliografia}]
+% \printbibliography[title={Bibliografia}]
 
 \end{document}
  
