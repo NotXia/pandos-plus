@@ -120,23 +120,37 @@ Tale lista è ordinata in senso crescente per migliorare le prestazioni di ricer
 Una possibile alternativa a tale implementazione è basata sugli alberi di ricerca che permettono di ottenere maggiori prestazioni nella fase di ricerca. \\
 La scelta di utilizzare una lista ordinata è stata fatta considerando un trade-off tra semplicità di implementazione e prestazioni che rimangono valide in quanto il numero massimo di processi attivi ha un limite superiore molto contenuto.
 
+\newpage
 \section{Gestione dei semafori dei device}
+\subsection{Interval timer}
+L'interval timer ha un semaforo dedicato e il tempo caricato ad ogni ciclo viene calcolato in base alla seguente formula:
+\begin{equation}
+    \text{time}_{\text{IT}} = \texttt{PSECOND} - (\text{curr}\_\text{time } \% \texttt{ PSECOND})
+\end{equation}
+Dove \texttt{PSECOND} è la durata dell'interval timer e $\text{curr}\_\text{time}$ è il valore del \texttt{TOD}.\\
+In questo modo, il timer viene impostato facendo riferimento al momento di inizio del \texttt{TOD}, permettendo di non accumulare eventuali ritardi causati dalla gestione dell'interrupt.
+
+\subsection{Device di I/O}
+I semafori associati ai device di I/O sono memorizzati in un vettore la cui mappatura tra indice e device segue la seguente formula:
+\begin{equation}
+    i = \dfrac{\text{dev\_reg}_{\text{address}} - \text{dev\_reg}_{\text{start\_address}}}{\text{dev\_reg}_{\text{size}}} 
+\end{equation}
+Dove:
+\begin{itemize}
+    \item $\text{dev\_reg}_{\text{address}}$ è il parametro che indica l'indirizzo del device register associato al device per cui si vuole trovare il semaforo
+            \footnote{Nel determinare l'indirizzo del device register, i terminali vengono gestiti come un caso a parte.}.
+    \item $\text{dev\_reg}_{\text{start\_address}}=0\text{x}10000054$ è l'indirizzo da cui iniziano i device register.
+    \item $\text{dev\_reg}_{\text{size}}=0\text{x}10$ è la dimensione dei device register.
+\end{itemize}
+Quindi al primo indice si trova il semaforo associato al device con priorità maggiore e all'ultimo quello con priorità minore.
 
 
-\section{Gestione contabilizzazione del tempo di CPU}
-
-
-\section{Inizializzazione del sistema}
-
-
-\section{Scheduling dei processi}
-
-
-\section{Gestione delle eccezioni}
-
+\section{Gestione del tempo di CPU}
+Il calcolo del tempo di CPU per ciascun processo utilizza, come da specifiche, il meccanismo di temporizzazione fornito dal \texttt{TOD}.\\
+La politica di accumulo prevede di contabilizzare, per ciascun processo, il tempo di esecuzione effettivo e il tempo impiegato per eseguire le system call (che sono direttamente invocate dal processo).
+Non viene invece considerato il tempo di gestione degli interrupt, durante il quale viene disabilitato il \texttt{PLT}, in quanto non sono causate in modo diretto dal processo.
 
 \newpage
 % \printbibliography[title={Bibliografia}]
 
 \end{document}
- 
