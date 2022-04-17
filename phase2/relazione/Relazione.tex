@@ -88,7 +88,7 @@ sorting=none
 
 \section{Introduzione}
 La seconda fase del progetto \texttt{PandOS+} consiste nell'implementazione del livello 3 dell'architettura astratta di un sistema operativo proposta da Dijkstra. \\
-In particolare è necessario implementare le funzionalità del kernel per gestire la schedulazione dei processi e la gestione delle eccezioni.
+In particolare è necessario implementare le funzionalità del kernel per l'inizializzazione del sistema, la schedulazione dei processi e la gestione delle eccezioni.
 
 \subsection{Organizzazione dei file}
 I file coinvolti per l'implementazione delle specifiche sono i seguenti:
@@ -103,7 +103,7 @@ I file coinvolti per l'implementazione delle specifiche sono i seguenti:
         \hline
         \texttt{scheduler}    & Implementa lo scheduler. \\ 
         \hline
-        \texttt{exceptions}   & Gestisce lo "smistamento" le eccezioni ai relativi gestori. Implementa il gestore delle system call. \\ 
+        \texttt{exceptions}   & Reindirizza le eccezioni ai relativi gestori. Implementa il gestore delle system call. \\ 
         \hline
         \texttt{interrupts}   & Implementa il gestore delle interrupt. \\ 
         \hline
@@ -115,13 +115,13 @@ I file coinvolti per l'implementazione delle specifiche sono i seguenti:
 \section{Gestione dei \texttt{pid}}
 I pid vengono generati in ordine crescente a partire da 1.\\
 La mappatura dei pid validi in un dato istante avviene tramite una lista bidirezionale implementata attraverso un nuovo campo aggiunto della struttura \texttt{pcb\_t}.
-Tale lista è ordinata in senso crescente per migliorare le prestazioni di ricerca e permette l'inserimento in tempo costante per il primo ciclo di pid (dopo un wraparound non è garantita questa proprietà).
+Tale lista è ordinata in senso crescente per migliorare le prestazioni di ricerca e permette l'inserimento in tempo costante per il primo "ciclo di pid" (dopo un wraparound non è garantita questa proprietà).
 \subsection{Possibili miglioramenti}
-Una possibile alternativa a tale implementazione è basata sugli alberi di ricerca che permettono di ottenere maggiori prestazioni nella fase di ricerca. \\
+Sono possibili alternative a tale implementazione utilizzando strutture dati differenti (es. alberi di ricerca) che permettono di ottenere prestazioni diverse. \\
 La scelta di utilizzare una lista ordinata è stata fatta considerando un trade-off tra semplicità di implementazione e prestazioni che rimangono valide in quanto il numero massimo di processi attivi ha un limite superiore molto contenuto.
 
 \newpage
-\section{Gestione dei semafori dei device}
+\section{Gestione dei semafori per i device}
 \subsection{Interval timer}
 L'interval timer ha un semaforo dedicato e il tempo caricato ad ogni ciclo viene calcolato in base alla seguente formula:
 \begin{equation}
@@ -138,11 +138,11 @@ I semafori associati ai device di I/O sono memorizzati in un vettore la cui mapp
 Dove:
 \begin{itemize}
     \item $\text{dev\_reg}_{\text{address}}$ è il parametro che indica l'indirizzo del device register associato al device per cui si vuole trovare il semaforo
-            \footnote{Nel determinare l'indirizzo del device register, i terminali vengono gestiti come un caso a parte.}.
+        \footnote{Durante l'elaborazione, viene fornito l'indirizzo del campo \textit{command} del device register. A partire da tale indirizzo è possibile risalire all'indirizzo di inizio del device register (bisogna gestire il fatto che i terminali hanno due campi \textit{command}).}.    
     \item $\text{dev\_reg}_{\text{start\_address}}=0\text{x}10000054$ è l'indirizzo da cui iniziano i device register.
-    \item $\text{dev\_reg}_{\text{size}}=0\text{x}10$ è la dimensione dei device register.
+    \item $\text{dev\_reg}_{\text{size}}=0\text{x}10$ è la dimensione dei device register (4 word).
 \end{itemize}
-Quindi al primo indice si trova il semaforo associato al device con priorità maggiore e all'ultimo quello con priorità minore.
+Quindi al primo indice del vettore si trova il semaforo associato al device di I/O con priorità maggiore (disco 1) e all'ultimo quello con priorità minore (trasmissione terminale 7).
 
 
 \section{Gestione del tempo di CPU}
