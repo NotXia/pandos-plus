@@ -138,7 +138,11 @@ I semafori associati ai device di I/O sono memorizzati in un vettore la cui mapp
 Dove:
 \begin{itemize}
     \item $\text{dev\_reg}_{\text{address}}$ è il parametro che indica l'indirizzo del device register associato al device per cui si vuole trovare il semaforo
+<<<<<<< HEAD
         \footnote{Durante l'elaborazione, viene fornito l'indirizzo del campo \textit{command} del device register. A partire da tale indirizzo è possibile risalire all'indirizzo di inizio del device register (bisogna gestire il fatto che i terminali hanno due campi \textit{command}).}.    
+=======
+            \footnote{Durante l'elaborazione, viene fornito l'indirizzo del campo \textit{command} del device register. A partire da tale indirizzo è possibile risalire all'indirizzo di inizio del device register (bisogna gestire il fatto che i terminali hanno due campi \textit{command}).}.
+>>>>>>> aa41aabdb5ee79491457e10de784782ced30bc3b
     \item $\text{dev\_reg}_{\text{start\_address}}=0\text{x}10000054$ è l'indirizzo da cui iniziano i device register.
     \item $\text{dev\_reg}_{\text{size}}=0\text{x}10$ è la dimensione dei device register (4 word).
 \end{itemize}
