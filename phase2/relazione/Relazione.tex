@@ -103,9 +103,10 @@ I file coinvolti per l'implementazione delle specifiche sono i seguenti:
         \hline
         \texttt{scheduler}    & Implementa lo scheduler. \\ 
         \hline
-        \texttt{exceptions}   & Reindirizza le eccezioni ai relativi gestori. Implementa il gestore delle system call. \\ 
+        \texttt{exceptions}   & Reindirizza le eccezioni ai relativi gestori.\\
+        Implementa il gestore delle system call. \\ 
         \hline
-        \texttt{interrupts}   & Implementa il gestore delle interrupt. \\ 
+        \texttt{interrupts}   & Implementa il gestore degli interrupt. \\ 
         \hline
         \texttt{utilities}    & Contiene l'implementazione di \texttt{memcpy}. \\ 
         \hline
@@ -113,12 +114,12 @@ I file coinvolti per l'implementazione delle specifiche sono i seguenti:
 \end{center}
 
 \section{Gestione dei \texttt{pid}}
-I pid vengono generati in ordine crescente a partire da 1.\\
+I pid vengono generati in modo incrementale a partire da 1.\\
 La mappatura dei pid validi in un dato istante avviene tramite una lista bidirezionale implementata attraverso un nuovo campo aggiunto della struttura \texttt{pcb\_t}.
 Tale lista è ordinata in senso crescente per migliorare le prestazioni di ricerca e permette l'inserimento in tempo costante per il primo "ciclo di pid" (dopo un wraparound non è garantita questa proprietà).
 \subsection{Possibili miglioramenti}
-Sono possibili alternative a tale implementazione utilizzando strutture dati differenti (es. alberi di ricerca) che permettono di ottenere prestazioni diverse. \\
-La scelta di utilizzare una lista ordinata è stata fatta considerando un trade-off tra semplicità di implementazione e prestazioni che rimangono valide in quanto il numero massimo di processi attivi ha un limite superiore molto contenuto.
+Sono possibili alternative a tale implementazione utilizzando strutture dati con approcci differenti che permettono di ottenere prestazioni diverse (es. alberi di ricerca oppure utilizzando direttamente l'albero dei processi). \\
+La scelta di utilizzare una lista ordinata è stata fatta considerando un trade-off tra semplicità di implementazione e prestazioni, che rimangono comunque valide in quanto il numero massimo di processi attivi ha un limite superiore molto contenuto e l'overhead di memoria per mantenere la lista non è eccessivo.
 
 \newpage
 \section{Gestione dei semafori per i device}
@@ -138,7 +139,7 @@ I semafori associati ai device di I/O sono memorizzati in un vettore la cui mapp
 Dove:
 \begin{itemize}
     \item $\text{dev\_reg}_{\text{address}}$ è il parametro che indica l'indirizzo del device register associato al device per cui si vuole trovare il semaforo
-        \footnote{Durante l'elaborazione, viene fornito l'indirizzo del campo \textit{command} del device register. A partire da tale indirizzo è possibile risalire all'indirizzo di inizio del device register (bisogna gestire il fatto che i terminali hanno due campi \textit{command}).}.    
+        \footnote{Durante l'elaborazione, in alcuni casi viene fornito l'indirizzo del campo \textit{command} del device register. A partire da tale indirizzo è comunque possibile risalire all'indirizzo di inizio del device register (bisogna gestire il fatto che i terminali hanno due campi \textit{command}).}.
     \item $\text{dev\_reg}_{\text{start\_address}}=0\text{x}10000054$ è l'indirizzo da cui iniziano i device register.
     \item $\text{dev\_reg}_{\text{size}}=0\text{x}10$ è la dimensione dei device register (4 word).
 \end{itemize}
@@ -147,7 +148,7 @@ Quindi al primo indice del vettore si trova il semaforo associato al device di I
 
 \section{Gestione del tempo di CPU}
 Il calcolo del tempo di CPU per ciascun processo utilizza, come da specifiche, il meccanismo di temporizzazione fornito dal \texttt{TOD}.\\
-La politica di accumulo prevede di contabilizzare, per ciascun processo, il tempo di esecuzione effettivo e il tempo impiegato per eseguire le system call (che sono direttamente invocate dal processo).
+La politica di accumulo prevede di contabilizzare, per ciascun processo, il tempo di esecuzione effettivo e il tempo impiegato per eseguire le system call (poiché sono direttamente invocate dal processo).
 Non viene invece considerato il tempo di gestione degli interrupt, durante il quale viene disabilitato il \texttt{PLT}, in quanto non sono causate in modo diretto dal processo.
 
 \newpage
