@@ -49,6 +49,8 @@ static void _killProcess(pcb_t *process) {
     outChild(process);
 
     process_count--;
+    
+    // Gestione semafori
     if (process->p_semAdd != NULL) {
         if (isSoftBlocked(process)) {
             softblocked_count--;
