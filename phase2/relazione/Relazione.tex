@@ -1,0 +1,157 @@
+\documentclass[11pt]{article}
+\usepackage{algorithm2e}
+\usepackage[italian]{babel}
+\usepackage[document]{ragged2e}
+\usepackage{amsfonts, amssymb, amsmath}
+\usepackage{cancel}
+\usepackage{float}
+\usepackage{mathtools}
+\usepackage[margin=3cm]{geometry}
+\usepackage{subfig}
+\usepackage{mwe}
+\usepackage{hyperref}
+\usepackage{array}
+
+\usepackage[
+backend=biber,
+sorting=none
+]{biblatex}
+\addbibresource{bibliografia.bib}
+
+\tolerance=1
+\emergencystretch=\maxdimen
+\hyphenpenalty=10000
+\hbadness=10000
+
+\begin{document}
+\graphicspath{ {./img/} }
+\begin{titlepage}
+    \begin{center}
+        \vspace*{1.5cm}
+            
+        \Huge
+        \textbf{PandOS}\texttt{+} \\
+        \LARGE
+        Fase 2
+                        
+        \vspace{2.0cm}
+          
+        \begin{minipage}[t]{0.47\textwidth}
+        \begin{center}
+        	{\large{\bf Cheikh Ibrahim $\cdot$ Zaid}}\\
+			{\large Matricola: \texttt{0000974909}}
+        \end{center}
+
+		\end{minipage}
+		\hfill
+		\begin{minipage}[t]{0.47\textwidth}\raggedleft
+		\begin{center}
+        	{\large{\bf Lee $\cdot$ Qun Hao Henry}}\\
+			{\large Matricola: \texttt{0000990259}}
+        \end{center}
+		\end{minipage}
+
+        \vspace{1cm}
+
+        \begin{minipage}[t]{0.47\textwidth}
+            \begin{center}
+                {\large{\bf Xia $\cdot$ Tian Cheng}}\\
+                {\large Matricola: \texttt{0000975129}}
+            \end{center}
+    
+            \end{minipage}
+            \hfill
+            \begin{minipage}[t]{0.47\textwidth}\raggedleft
+            \begin{center}
+                {\large{\bf Paris $\cdot$ Manuel}}\\
+                {\large Matricola: \texttt{0000997526}}
+            \end{center}
+            \end{minipage}  
+            
+        \vspace{6cm}
+            
+        Anno	 accademico\\
+        $2021 - 2022$
+            
+        \vspace{0.8cm}
+            
+            
+        \Large
+        Corso di Sistemi Operativi\\
+        Alma Mater Studiorum $\cdot$ Università di Bologna\\
+            
+    \end{center}
+\end{titlepage}
+\pagebreak
+
+\newpage
+
+\section{Introduzione}
+La seconda fase del progetto \texttt{PandOS+} consiste nell'implementazione del livello 3 dell'architettura astratta di un sistema operativo proposta da Dijkstra. \\
+In particolare è necessario implementare le funzionalità del kernel per l'inizializzazione del sistema, la schedulazione dei processi e la gestione delle eccezioni.
+
+\subsection{Organizzazione dei file}
+I file coinvolti per l'implementazione delle specifiche sono i seguenti:
+\begin{center}
+    \begin{tabular}{ | m{3cm} | m{10cm} | } 
+        \hline
+        \texttt{pcb}          & È stata aggiunta la gestione dei \texttt{pid} dei processi. \\ 
+        \hline
+        \texttt{asl}          & Sono state aggiunte le operazioni \texttt{P}/\texttt{V} sui semafori. \\ 
+        \hline
+        \texttt{initial}      & Gestisce la fase di inizializzazione del sistema e fornisce alcune funzioni ausiliare di utilità generale. \\ 
+        \hline
+        \texttt{scheduler}    & Implementa lo scheduler. \\ 
+        \hline
+        \texttt{exceptions}   & Reindirizza le eccezioni ai relativi gestori.\\
+                              & Implementa il gestore delle system call. \\ 
+        \hline
+        \texttt{interrupts}   & Implementa il gestore degli interrupt. \\ 
+        \hline
+        \texttt{utilities}    & Contiene l'implementazione di \texttt{memcpy}. \\ 
+        \hline
+    \end{tabular}
+\end{center}
+
+\section{Gestione dei \texttt{pid}}
+I pid vengono generati in modo incrementale a partire da 1.\\
+La mappatura dei pid validi in un dato istante avviene tramite una lista bidirezionale implementata attraverso un nuovo campo aggiunto della struttura \texttt{pcb\_t}.
+Tale lista è ordinata in senso crescente per migliorare le prestazioni di ricerca e permette l'inserimento in tempo costante per il primo "ciclo di pid" (dopo un wraparound non è garantita questa proprietà).
+\subsection{Possibili miglioramenti}
+Sono possibili alternative a tale implementazione utilizzando strutture dati con approcci differenti che permettono di ottenere prestazioni diverse (es. alberi di ricerca oppure utilizzando direttamente l'albero dei processi). \\
+La scelta di utilizzare una lista ordinata è stata fatta considerando un trade-off tra semplicità di implementazione e prestazioni, che rimangono comunque valide in quanto il numero massimo di processi attivi ha un limite superiore molto contenuto e l'overhead di memoria per mantenere la lista non è eccessivo.
+
+\newpage
+\section{Gestione dei semafori per i device}
+\subsection{Interval timer}
+L'interval timer ha un semaforo dedicato e il tempo caricato ad ogni ciclo viene calcolato in base alla seguente formula:
+\begin{equation}
+    \text{time}_{\text{IT}} = \texttt{PSECOND} - (\text{curr}\_\text{time } \% \texttt{ PSECOND})
+\end{equation}
+Dove \texttt{PSECOND} è la durata dell'interval timer e $\text{curr}\_\text{time}$ è il valore del \texttt{TOD}.\\
+In questo modo, il timer viene impostato facendo riferimento al momento di inizio del \texttt{TOD}, permettendo di non accumulare eventuali ritardi causati dalla gestione dell'interrupt.
+
+\subsection{Device di I/O}
+I semafori associati ai device di I/O sono memorizzati in un vettore la cui mappatura tra indice e device segue la seguente formula:
+\begin{equation}
+    i = \dfrac{\text{dev\_reg}_{\text{address}} - \text{dev\_reg}_{\text{start\_address}}}{\text{dev\_reg}_{\text{size}}} 
+\end{equation}
+Dove:
+\begin{itemize}
+    \item $\text{dev\_reg}_{\text{address}}$ è il parametro che indica l'indirizzo del device register associato al device per cui si vuole trovare il semaforo
+        \footnote{Durante l'elaborazione, in alcuni casi viene fornito l'indirizzo del campo \textit{command} del device register. A partire da tale indirizzo è comunque possibile risalire all'indirizzo di inizio del device register (bisogna gestire il fatto che i terminali hanno due campi \textit{command}).}.
+    \item $\text{dev\_reg}_{\text{start\_address}}=0\text{x}10000054$ è l'indirizzo da cui iniziano i device register.
+    \item $\text{dev\_reg}_{\text{size}}=0\text{x}10$ è la dimensione dei device register (4 word).
+\end{itemize}
+Quindi al primo indice del vettore si trova il semaforo associato al device di I/O con priorità maggiore (disco 1) e all'ultimo quello con priorità minore (trasmissione terminale 7).
+
+
+\section{Gestione del tempo di CPU}
+Il calcolo del tempo di CPU per ciascun processo utilizza, come da specifiche, il meccanismo di temporizzazione fornito dal \texttt{TOD}.\\
+La politica di accumulo prevede di contabilizzare, per ciascun processo, il tempo di esecuzione effettivo e il tempo impiegato per eseguire le system call (poiché sono direttamente invocate dal processo).
+Non viene invece considerato il tempo di gestione degli interrupt, durante il quale viene disabilitato il \texttt{PLT}, in quanto non sono causate in modo diretto dal processo.
+
+\newpage
+% \printbibliography[title={Bibliografia}]
+
+\end{document}

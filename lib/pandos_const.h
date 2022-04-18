@@ -38,26 +38,20 @@
 
 #define MAXPROC 20
 
-#define CREATEPROCESS 1
-#define TERMPROCESS   2
-#define PASSEREN      3
-#define VERHOGEN      4
-#define IOWAIT        5
-#define GETTIME       6
-#define CLOCKWAIT     7
-#define GETSUPPORTPTR 8
-#define TERMINATE     9
-#define GET_TOD       10
-#define WRITEPRINTER  11
-#define WRITETERMINAL 12
-#define READTERMINAL  13
-#define DISK_GET      14
-#define DISK_PUT      15
-#define FLASH_READ    16
-#define FLASH_WRITE   17
-#define DELAY         18
-#define PSEMVIRT      19
-#define VSEMVIRT      20
+#define CREATEPROCESS -1
+#define TERMPROCESS   -2
+#define PASSEREN      -3
+#define VERHOGEN      -4
+#define DOIO          -5
+#define GETTIME       -6
+#define CLOCKWAIT     -7
+#define GETSUPPORTPTR -8
+#define GETPROCESSID  -9
+#define YIELD         -10
+
+
+#define PROCESS_PRIO_LOW  0
+#define PROCESS_PRIO_HIGH 1
 
 
 /* Status register constants */
@@ -76,6 +70,7 @@
 #define TIMERINTERRUPT 0x00000400
 #define DISKINTERRUPT  0x00000800
 #define FLASHINTERRUPT 0x00001000
+#define NETINTERRUPT   0x00002000
 #define PRINTINTERRUPT 0x00004000
 #define TERMINTERRUPT  0x00008000
 #define IOINTERRUPTS   0
@@ -175,6 +170,9 @@
 #define UPROCMAX 8
 #define POOLSIZE (UPROCMAX * 2)
 /* End of Mikeyg constants */
+
+
+#define TERM0ADDR       0x10000254
 
 
 #endif

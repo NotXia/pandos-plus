@@ -3,14 +3,20 @@
 static pcb_t pcbFree_table[MAXPROC];
 static struct list_head pcbFree_h;
 
+static pid_t curr_pid;
+static struct list_head pid_list_h;
+
 /**
  * @brief Inizializza le strutture dati.
 */
 void initPcbs() {
     INIT_LIST_HEAD(&pcbFree_h);
+    INIT_LIST_HEAD(&pid_list_h);
+    curr_pid = 1;
 
     for (int i=MAXPROC-1; i>=0; i--) {
-        freePcb(&pcbFree_table[i]);
+        list_add(&pcbFree_table[i].p_list, &pcbFree_h);
+        pcbFree_table[i].p_pid = FREE_PCB_PID;
     }
 }
 
@@ -20,10 +26,35 @@ void initPcbs() {
 */
 void freePcb(pcb_t *p) {
     list_add(&p->p_list, &pcbFree_h);
+    list_del(&p->pid_list);
+    p->p_pid = FREE_PCB_PID;
+}
+
+
+/**
+ * @brief Genera un pid per un processo.
+ * @return Restituisce un pid assegnabile.
+*/
+static pid_t _generatePid() {
+    // Gestione wraparound
+    if (curr_pid <= 0) { curr_pid = 1; }
+
+    if (!list_empty(&pid_list_h)) {
+        /* Gestione collisioni */
+        int curr_greater_pid = container_of(pid_list_h.prev, pcb_t, pid_list)->p_pid; // L'ultimo elemento della lista dei pid è il più grande
+
+        if (curr_greater_pid >= curr_pid) { // Se minore, sicuramente non ci sono collisioni (la lista dei pid è ordinata)
+            while (getProcessByPid(curr_pid) != NULL) {
+                curr_pid++;
+            }
+        }
+    }
+    
+    return curr_pid++;
 }
 
 /**
- * @brief Imposta i campi di un PCB inizializzandoli opportunamente a 0, NULL o lista vuota.
+ * @brief Imposta i campi generali di un PCB inizializzandoli opportunamente.
  * @param pcb Puntatore al PCB da inizializzare.
 */
 static void _initPcb(pcb_t *pcb) {
@@ -31,19 +62,34 @@ static void _initPcb(pcb_t *pcb) {
     pcb->p_parent = NULL;
     INIT_LIST_HEAD(&pcb->p_child);
     INIT_LIST_HEAD(&pcb->p_sib);
-    // pcb->p_s.entry_hi = 0;
-    // pcb->p_s.cause = 0;
-    // pcb->p_s.status = 0;
-    // pcb->p_s.pc_epc = 0;
-    // for (int i=0; i<STATE_GPR_LEN; i++) { pcb->p_s.gpr[i] = 0; }
-    // pcb->p_s.hi = 0;
-    // pcb->p_s.lo = 0;
-    pcb->p_time = 0; 
+    pcb->p_time = 0;
     pcb->p_semAdd = NULL;
+    pcb->p_supportStruct = NULL;
+    pcb->p_s.entry_hi = pcb->p_pid = _generatePid();
+}
+
+static void _addPid(pcb_t *p) {
+    int inserted = FALSE;
+    pcb_t *iter;
+
+    // Inserimento per mantenere la lista ordinata in senso crescente per pid
+    // Dato che i pid sono (tendenzialmente) crescenti, si inserisce scorrendo la lista al contrario per maggiore ottimizzazione
+    list_for_each_entry_reverse(iter, &pid_list_h, pid_list) {
+        if (p->p_pid >= iter->p_pid) {
+            __list_add(&p->pid_list, &iter->pid_list, iter->pid_list.next);
+            inserted = TRUE;
+            break;
+        }
+    }
+
+    // Nel caso in cui si raggiunga l'inizio della lista senza che avvenga l'inserimento o se la lista è vuota
+    if (inserted == FALSE) {
+        list_add(&p->pid_list, &pid_list_h);
+    }
 }
 
 /**
- * @brief Rimuove un elemento dalla lista dei PCB liberi e lo restituisce inizializzato.
+ * @brief Rimuove un elemento dalla lista dei PCB liberi e lo restituisce inizializzato. Vanno ancora inizializzati i parametri specifici del processo
  * @return L'elemento rimosso. NULL se la lista dei PCB liberi è vuota.
 */
 pcb_t *allocPcb() {
@@ -55,7 +101,8 @@ pcb_t *allocPcb() {
         list_del(&out->p_list);
 
         _initPcb(out);
-        
+        _addPid(out);
+
         return out;
     }
 }
@@ -193,4 +240,20 @@ pcb_t *outChild(pcb_t *p) {
 
         return p;
     }
+}
+
+/**
+ * @brief Cerca il processo dato il suo pid.
+ * @param pid Pid del processo da cercare.
+ * @return Il puntatore al processo. NULL se non esiste.
+*/
+pcb_t *getProcessByPid(pid_t pid) {
+    pcb_t *iter;
+
+    list_for_each_entry(iter, &pid_list_h, pid_list) {
+        if (iter->p_pid == pid) { return iter; }
+        if (iter->p_pid > pid) { break; }
+    }
+
+    return NULL;
 }

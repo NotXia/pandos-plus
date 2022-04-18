@@ -1,5 +1,7 @@
 #include "asl.h"
 #include "pcb.h"
+#include <umps3/umps/libumps.h>
+#include <scheduler.h>
 
 static semd_t semd_table[MAXPROC];  // Allocazione dei semafori
 static struct list_head semdFree_h; // Lista di semafori liberi
@@ -153,6 +155,7 @@ pcb_t *removeBlocked(int *semAdd) {
     if (sem == NULL) { return NULL; } // Il semaforo non esiste
 
     pcb_t *pcb = removeProcQ(&sem->s_procq);
+    pcb->p_semAdd = NULL;
     _updateActiveSemaphore(sem);
     
     return pcb;
@@ -169,6 +172,7 @@ pcb_t *outBlocked(pcb_t *p) {
     if (sem == NULL) { return NULL; } // Il semaforo non esiste
     
     pcb_t *pcb = outProcQ(&sem->s_procq, p);
+    pcb->p_semAdd = NULL;
     _updateActiveSemaphore(sem);
     
     return pcb;
@@ -184,4 +188,57 @@ pcb_t *headBlocked(int *semAdd) {
     if (sem == NULL) { return NULL; } // Il semaforo non esiste
 
     return headProcQ(&sem->s_procq);
+}
+
+
+/**
+ * @brief Esegue la P su un semaforo binario.
+ * @param sem Puntatore del semaforo.
+ * @param process Puntatore al processo chiamante.
+ * @param state Puntatore allo stato attuale del processo.
+ * @return Il processo sbloccato. NULL se non esiste.
+*/
+pcb_t *semP(int *sem, pcb_t *process, state_t *state) {
+    pcb_t *ready_proc = NULL;
+
+    if (*sem == 0) {
+        if (insertBlocked(sem, process)) { PANIC(); } // Non ci sono semafori disponibili
+        setProcessBlocked(process, state);
+        scheduler();
+    }
+    else if (headBlocked(sem) != NULL) {
+        ready_proc = removeBlocked(sem);
+        setProcessReady(ready_proc);
+    }
+    else {
+        *sem = 0;
+    }
+    
+    return ready_proc;
+}
+
+/**
+ * @brief Esegue la V su un semaforo binario.
+ * @param sem Puntatore del semaforo.
+ * @param process Puntatore al processo chiamante.
+ * @param state Puntatore allo stato attuale del processo.
+ * @return Il processo sbloccato. NULL se non esiste.
+*/
+pcb_t *semV(int *sem, pcb_t *process, state_t *state) {
+    pcb_t *ready_proc = NULL;
+    
+    if (*sem == 1) {
+        if (insertBlocked(sem, process)) { PANIC(); } // Non ci sono semafori disponibili
+        setProcessBlocked(process, state);
+        scheduler();
+    }
+    else if (headBlocked(sem) != NULL) {
+        ready_proc = removeBlocked(sem);
+        setProcessReady(ready_proc);
+    }
+    else {
+        *sem = 1;
+    }
+
+    return ready_proc;
 }
