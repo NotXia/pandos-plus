@@ -49,12 +49,10 @@ static void _killProcess(pcb_t *process) {
     outChild(process);
 
     process_count--;
-    if (isSoftBlocked(process)) {
-        softblocked_count--;
-
-        if (process->p_semAdd == &semaphore_it) { outBlocked(process); } // è sicuro rimuovere un processo in attesa di IT
-    }
-    else if (process->p_semAdd != NULL) { // Il processo aveva chiamato una P e si era bloccato
+    if (process->p_semAdd != NULL) {
+        if (isSoftBlocked(process)) {
+            softblocked_count--;
+        }
         outBlocked(process);
     }
 
