@@ -89,6 +89,13 @@ void updateProcessCPUTime() {
     curr_process->p_time += timerFlush();
 }
 
+/**
+ * @brief Avvia il PLT impostato correttamente con il timeslice.
+*/
+void startPLT() {
+    setTIMER((cpu_t)TIMESLICE / (*((cpu_t *)TIMESCALEADDR)));
+}
+
 
 /**
  * @brief Inizializza il pass up vector.
