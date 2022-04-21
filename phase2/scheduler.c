@@ -53,7 +53,7 @@ void scheduler() {
     else { // Esiste almeno un processo ready
         if (curr_process->p_prio == PROCESS_PRIO_LOW) {
             curr_process->p_s.status = (curr_process->p_s.status) | TEBITON; // PLT attivato
-            setTIMER(TIMESLICE); 
+            startPLT();
         }
         else {
             curr_process->p_s.status = (curr_process->p_s.status) & ~TEBITON; // PLT disattivato
