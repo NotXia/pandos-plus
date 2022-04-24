@@ -3,7 +3,7 @@
 
 #include <pcb.h>
 
-pcb_t *process_to_skip; // Per gestire i processi che chiamano yield
+extern pcb_t *process_to_skip; // Per gestire i processi che chiamano yield
 
 void scheduler();
 
