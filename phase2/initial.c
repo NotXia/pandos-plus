@@ -6,6 +6,14 @@
 #include <exceptions.h>
 #include <utilities.h>
 
+pcb_t *curr_process;
+unsigned int process_count;
+unsigned int softblocked_count;
+struct list_head low_readyqueue;
+struct list_head high_readyqueue;
+int semaphore_it;
+int semaphore_devices[TOTAL_IO_DEVICES];
+
 // Funzioni fornite dal test
 extern void test();
 extern void uTLB_RefillHandler();

@@ -3,6 +3,8 @@
 #include <initial.h>
 #include <utilities.h>
 
+pcb_t *process_to_skip;
+
 /**
  * @brief Seleziona il prossimo processo da mandare in esecuzione.
  * @return Il processo selezionato.

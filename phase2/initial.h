@@ -4,16 +4,16 @@
 #include <pcb.h>
 #include <asl.h>
 
-pcb_t *curr_process;
-unsigned int process_count;
-unsigned int softblocked_count;
-struct list_head low_readyqueue;
-struct list_head high_readyqueue;
+extern pcb_t *curr_process;
+extern unsigned int process_count;
+extern unsigned int softblocked_count;
+extern struct list_head low_readyqueue;
+extern struct list_head high_readyqueue;
 #define GET_READY_QUEUE(prio) (prio == PROCESS_PRIO_LOW ? &low_readyqueue : &high_readyqueue)
 
 #define TOTAL_IO_DEVICES 48
-int semaphore_it;
-int semaphore_devices[TOTAL_IO_DEVICES];
+extern int semaphore_it;
+extern int semaphore_devices[TOTAL_IO_DEVICES];
 
 
 int isSoftBlocked(pcb_t *p);
