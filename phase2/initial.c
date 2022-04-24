@@ -93,7 +93,7 @@ void updateProcessCPUTime() {
  * @brief Avvia il PLT impostato correttamente con il timeslice.
 */
 void startPLT() {
-    setTIMER((cpu_t)TIMESLICE / (*((cpu_t *)TIMESCALEADDR)));
+    setTIMER((cpu_t)TIMESLICE * (*((cpu_t *)TIMESCALEADDR)));
 }
 
 
