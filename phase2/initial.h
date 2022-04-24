@@ -18,8 +18,10 @@ int semaphore_devices[TOTAL_IO_DEVICES];
 
 int isSoftBlocked(pcb_t *p);
 int *getIODeviceSemaphore(memaddr address);
+
 void resetIntervalTimer();
 cpu_t timerFlush();
 void updateProcessCPUTime();
+void startPLT();
 
 #endif

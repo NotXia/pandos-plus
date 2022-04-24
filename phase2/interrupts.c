@@ -24,7 +24,7 @@ static void _interruptHandlerExit() {
  * @brief Gestore del Processor Local Timer.
 */
 static void _PLTHandler() {
-    setTIMER(TIMESLICE); // Ack PLT (verrà impostato nuovamente nello scheduler)
+    startPLT(); // Ack PLT (verrà impostato nuovamente nello scheduler)
 
     curr_process->p_s = *PREV_PROCESSOR_STATE;
     updateProcessCPUTime();
