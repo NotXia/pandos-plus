@@ -24,4 +24,6 @@ cpu_t timerFlush();
 void updateProcessCPUTime();
 void startPLT();
 
+#define PREV_PROCESSOR_STATE    ((state_t *)BIOSDATAPAGE)
+
 #endif
