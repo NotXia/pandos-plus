@@ -7,7 +7,7 @@
 
 static int swap_pool_sem;
 static swap_t swap_pool_table[POOLSIZE];
-static int swap_pool_index;
+static int swap_pool_index; // Indice della pagina più datata
 
 /**
  * @brief Inizializza le strutture dati per la swap pool.
