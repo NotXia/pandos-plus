@@ -48,3 +48,39 @@ void TLBRefillHandler() {
 
     LDST(PREV_PROCESSOR_STATE);
 }
+
+/**
+ * @brief Seleziona e restituisce un frame utilizzabile.
+ * @returns Un frame utilizzabile.
+*/
+static swap_t* _pager() {
+    swap_t *to_swap = &swap_pool_table[swap_pool_index];
+    swap_pool_index++;
+    if (swap_pool_index >= POOLSIZE) { swap_pool_index = 0; }
+
+    return to_swap;
+}
+
+/**
+ * @brief Gestore delle eccezioni TLB-invalid.
+*/
+static void _TLBInvalidHandler() {
+
+}
+
+/**
+ * @brief Gestore delle eccezioni TLB.
+*/
+void TLBExceptionHandler() {
+    support_t *support_structure = (support_t *)SYSCALL(GETSUPPORTPTR, NULL, NULL, NULL);
+    
+    switch (CAUSE_GET_EXCCODE(support_structure->sup_exceptState[0].cause)) {
+        case TLBMOD:
+            break;
+
+        case TLBINVLDL:
+        case TLBINVLDS:
+            _TLBInvalidHandler();
+            break;
+    }
+}

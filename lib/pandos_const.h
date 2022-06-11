@@ -74,6 +74,7 @@
 #define PRINTINTERRUPT 0x00004000
 #define TERMINTERRUPT  0x00008000
 #define IOINTERRUPTS   0
+#define TLBMOD         1
 #define TLBINVLDL      2
 #define TLBINVLDS      3
 #define SYSEXCEPTION   8

@@ -3,5 +3,6 @@
 
 void initSwapStructs();
 void TLBRefillHandler();
+void TLBExceptionHandler();
 
 #endif
