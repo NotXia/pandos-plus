@@ -6,6 +6,11 @@
 #include <umps3/umps/libumps.h>
 #include <umps3/umps/types.h>
 
+#define IS_FREE_FRAME(frame)    frame->sw_asid == NOPROC
+#define FRAME_ADDRESS(index)    (FRAMEPOOLSTART + (index)*PAGESIZE)
+#define DISABLE_INTERRUPTS      setSTATUS(getSTATUS() & ~IECON)
+#define ENABLE_INTERRUPTS       setSTATUS(getSTATUS() | IECON | IMON)
+
 static int swap_pool_sem;
 static swap_t swap_pool_table[POOLSIZE];
 static int swap_pool_index; // Indice della pagina più datata
@@ -50,16 +55,98 @@ void TLBRefillHandler() {
     LDST(PREV_PROCESSOR_STATE);
 }
 
+
 /**
  * @brief Seleziona e restituisce un frame utilizzabile.
  * @returns Un frame utilizzabile.
 */
-static swap_t* _getFrame() {
-    swap_t *to_swap = &swap_pool_table[swap_pool_index];
+static swap_t* _getFrame(memaddr *frame_address) {
+    swap_t *to_swap_frame = &swap_pool_table[swap_pool_index];
+    memaddr to_swap_frame_address = FRAME_ADDRESS(swap_pool_index);
+
     swap_pool_index++;
     if (swap_pool_index >= POOLSIZE) { swap_pool_index = 0; }
 
-    return to_swap;
+    *frame_address = to_swap_frame_address;
+    return to_swap_frame;
+}
+
+/**
+ * @brief Scrive sul flash drive corretto, i dati di una determinata pagina di un processo.
+ * @param asid              ASID del processo
+ * @param page_num          Numero della pagina da scrivere
+ * @param frame_address     Indirizzo di inizio del frame che contiene la pagina
+*/
+static void _writePageToFlash(int asid, int page_num, memaddr frame_address) {
+    dtpreg_t *flash_dev_reg = (dtpreg_t *)DEV_REG_ADDR(4, asid);
+    
+    flash_dev_reg->data0 = frame_address;
+    int command = (_getPageIndex(page_num) << 8) + FLASHWRITE;
+    
+    int res = SYSCALL(DOIO, &flash_dev_reg->command, command, NULL);
+    if (res == FLASH_WRITE_ERROR) {
+        // Trap
+    }
+}
+
+/**
+ * @brief Legge dal flash drive corretto, i dati di una determinata pagina di un processo.
+ * @param asid              ASID del processo
+ * @param page_num          Numero della pagina da scrivere
+ * @param frame_address     Indirizzo di inizio del frame che contiene la pagina
+*/
+static void _readPageFromFlash(int asid, int page_num, memaddr frame_address) {
+    dtpreg_t *flash_dev_reg = (dtpreg_t *)DEV_REG_ADDR(4, asid);
+
+    flash_dev_reg->data0 = frame_address;
+    int command = (_getPageIndex(page_num) << 8) + FLASHREAD;
+
+    int res = SYSCALL(DOIO, &flash_dev_reg->command, command, NULL);
+    if (res == FLASH_READ_ERROR) {
+        // Trap
+    }
+}
+
+/**
+ * @brief Gestisce l'invalidazione di una pagina.
+ * @param frame             Puntatore al descrittore del frame che contiene la pagina
+ * @param frame_address     Indirizzo di inizio del frame che contiene la pagina
+*/
+static void _storePage(swap_t *frame, memaddr frame_address) {
+    DISABLE_INTERRUPTS;
+    // Invalidazione della pagina
+    frame->sw_pte->pte_entryLO = frame->sw_pte->pte_entryLO & ~VALIDON;
+    TLBCLR();
+    ENABLE_INTERRUPTS;
+
+    // Salvataggio della vecchia pagina nel flash drive del processo
+    _writePageToFlash(frame->sw_asid, frame->sw_pageNo, frame_address);
+}
+
+/**
+ * @brief Gestisce il caricamento di una pagina in memoria.
+ * @param pt_entry          Puntatore alla riga nella page table della pagina da caricare
+ * @param frame             Puntatore al descrittore del frame che conterrà la pagina
+ * @param frame_address     Indirizzo di inizio del frame che conterrà la pagina
+*/
+static void _loadPage(pteEntry_t *pt_entry, swap_t *frame, memaddr frame_address) {
+    int asid = ENTRYHI_GET_ASID(pt_entry->pte_entryHI);
+    int page_num = _getPageIndex(ENTRYHI_GET_VPN(pt_entry->pte_entryHI));
+
+    // Caricamento della nuova pagina in memoria
+    _readPageFromFlash(asid, page_num, frame_address);
+
+    // Aggiornamento descrittore del frame
+    frame->sw_asid = asid;
+    frame->sw_pageNo = page_num;
+    frame->sw_pte = pt_entry;
+
+    // Aggiornamento della page table
+    DISABLE_INTERRUPTS;
+    pt_entry->pte_entryLO = pt_entry->pte_entryLO | VALIDON; // Valid bit
+    pt_entry->pte_entryLO = (pt_entry->pte_entryLO & ~ENTRYHI_VPN_MASK) + (page_num << 12); // VPN
+    TLBCLR(); // TODO Ottimizzare
+    ENABLE_INTERRUPTS;
 }
 
 /**
@@ -68,45 +155,19 @@ static swap_t* _getFrame() {
 static void _TLBInvalidHandler(support_t *support_structure) {
     SYSCALL(PASSEREN, (int)&swap_pool_sem, NULL, NULL);
 
-    int new_asid = ENTRYHI_GET_ASID(PREV_PROCESSOR_STATE->entry_hi);
+    // Estrazione informazioni sulla pagina mancante
     int missing_page_index = _getPageIndex(ENTRYHI_GET_VPN(PREV_PROCESSOR_STATE->entry_hi));
-    swap_t *new_frame = _getFrame();
-    memaddr new_frame_start_address = FRAMEPOOLSTART + (swap_pool_index-1)*PAGESIZE;
+    pteEntry_t *page_pt_entry = &support_structure->sup_privatePgTbl[missing_page_index];
 
-    if (new_frame->sw_asid != NOPROC) {
-        setSTATUS(getSTATUS() & ~IECON); // Disabilita interrupt
-        new_frame->sw_pte->pte_entryLO = new_frame->sw_pte->pte_entryLO & ~VALIDON;
-        TLBCLR(); // TODO Ottimizzare
-        setSTATUS(getSTATUS() | IECON | IMON); // Abilita interrupt
+    // Preparazione del frame da usare
+    memaddr new_frame_address;
+    swap_t *new_frame = _getFrame(&new_frame_address);
 
-        // Salvataggio della vecchia pagina nel flash drive del proprietario
-        dtpreg_t *flash_dev_reg = (dtpreg_t *)DEV_REG_ADDR(4, new_frame->sw_asid);
-        flash_dev_reg->data0 = new_frame_start_address;
-        int command = (_getPageIndex(new_frame->sw_pageNo) << 8) + FLASHWRITE;
-        int res = SYSCALL(DOIO, &flash_dev_reg->command, command, NULL);
-        if (res == FLASH_WRITE_ERROR) {
-            // Trap
-        }
+    // Manipolazione delle pagine
+    if (!IS_FREE_FRAME(new_frame)) {
+        _storePage(new_frame, new_frame_address);
     }
-
-    // Caricamento della nuova pagina in memoria
-    dtpreg_t *flash_dev_reg = (dtpreg_t *)DEV_REG_ADDR(4, new_asid);
-    flash_dev_reg->data0 = new_frame_start_address;
-    int command = (_getPageIndex(missing_page_index) << 8) + FLASHREAD;
-    int res = SYSCALL(DOIO, &flash_dev_reg->command, command, NULL);
-    if (res == FLASH_READ_ERROR) {
-        // Trap
-    }
-
-    new_frame->sw_asid = new_asid;
-    new_frame->sw_pageNo = missing_page_index;
-    new_frame->sw_pte = &support_structure->sup_privatePgTbl[missing_page_index];
-
-    setSTATUS(getSTATUS() & ~IECON); // Disabilita interrupt
-    support_structure->sup_privatePgTbl[missing_page_index].pte_entryLO = support_structure->sup_privatePgTbl[missing_page_index].pte_entryLO | VALIDON;
-    support_structure->sup_privatePgTbl[missing_page_index].pte_entryLO = support_structure->sup_privatePgTbl[missing_page_index].pte_entryLO & ~GETPAGENO + (missing_page_index << 12);
-    TLBCLR(); // TODO Ottimizzare
-    setSTATUS(getSTATUS() | IECON | IMON); // Abilita interrupt
+    _loadPage(page_pt_entry, new_frame, new_frame_address);
 
     SYSCALL(VERHOGEN, (int)&swap_pool_sem, NULL, NULL);
     LDST(PREV_PROCESSOR_STATE);
