@@ -4,6 +4,7 @@
 #include <initial.h>
 #include <umps3/umps/cp0.h>
 #include <umps3/umps/libumps.h>
+#include <umps3/umps/types.h>
 
 static int swap_pool_sem;
 static swap_t swap_pool_table[POOLSIZE];
@@ -53,7 +54,7 @@ void TLBRefillHandler() {
  * @brief Seleziona e restituisce un frame utilizzabile.
  * @returns Un frame utilizzabile.
 */
-static swap_t* _pager() {
+static swap_t* _getFrame() {
     swap_t *to_swap = &swap_pool_table[swap_pool_index];
     swap_pool_index++;
     if (swap_pool_index >= POOLSIZE) { swap_pool_index = 0; }
@@ -64,8 +65,51 @@ static swap_t* _pager() {
 /**
  * @brief Gestore delle eccezioni TLB-invalid.
 */
-static void _TLBInvalidHandler() {
+static void _TLBInvalidHandler(support_t *support_structure) {
+    SYSCALL(PASSEREN, (int)&swap_pool_sem, NULL, NULL);
 
+    int new_asid = ENTRYHI_GET_ASID(PREV_PROCESSOR_STATE->entry_hi);
+    int missing_page_index = _getPageIndex(ENTRYHI_GET_VPN(PREV_PROCESSOR_STATE->entry_hi));
+    swap_t *new_frame = _getFrame();
+    memaddr new_frame_start_address = FRAMEPOOLSTART + (swap_pool_index-1)*PAGESIZE;
+
+    if (new_frame->sw_asid != NOPROC) {
+        setSTATUS(getSTATUS() & ~IECON); // Disabilita interrupt
+        new_frame->sw_pte->pte_entryLO = new_frame->sw_pte->pte_entryLO & ~VALIDON;
+        TLBCLR(); // TODO Ottimizzare
+        setSTATUS(getSTATUS() | IECON | IMON); // Abilita interrupt
+
+        // Salvataggio della vecchia pagina nel flash drive del proprietario
+        dtpreg_t *flash_dev_reg = (dtpreg_t *)DEV_REG_ADDR(4, new_frame->sw_asid);
+        flash_dev_reg->data0 = new_frame_start_address;
+        int command = (_getPageIndex(new_frame->sw_pageNo) << 8) + FLASHWRITE;
+        int res = SYSCALL(DOIO, &flash_dev_reg->command, command, NULL);
+        if (res == FLASH_WRITE_ERROR) {
+            // Trap
+        }
+    }
+
+    // Caricamento della nuova pagina in memoria
+    dtpreg_t *flash_dev_reg = (dtpreg_t *)DEV_REG_ADDR(4, new_asid);
+    flash_dev_reg->data0 = new_frame_start_address;
+    int command = (_getPageIndex(missing_page_index) << 8) + FLASHREAD;
+    int res = SYSCALL(DOIO, &flash_dev_reg->command, command, NULL);
+    if (res == FLASH_READ_ERROR) {
+        // Trap
+    }
+
+    new_frame->sw_asid = new_asid;
+    new_frame->sw_pageNo = missing_page_index;
+    new_frame->sw_pte = &support_structure->sup_privatePgTbl[missing_page_index];
+
+    setSTATUS(getSTATUS() & ~IECON); // Disabilita interrupt
+    support_structure->sup_privatePgTbl[missing_page_index].pte_entryLO = support_structure->sup_privatePgTbl[missing_page_index].pte_entryLO | VALIDON;
+    support_structure->sup_privatePgTbl[missing_page_index].pte_entryLO = support_structure->sup_privatePgTbl[missing_page_index].pte_entryLO & ~GETPAGENO + (missing_page_index << 12);
+    TLBCLR(); // TODO Ottimizzare
+    setSTATUS(getSTATUS() | IECON | IMON); // Abilita interrupt
+
+    SYSCALL(VERHOGEN, (int)&swap_pool_sem, NULL, NULL);
+    LDST(PREV_PROCESSOR_STATE);
 }
 
 /**
@@ -76,11 +120,12 @@ void TLBExceptionHandler() {
     
     switch (CAUSE_GET_EXCCODE(support_structure->sup_exceptState[0].cause)) {
         case TLBMOD:
+            // Trap
             break;
 
         case TLBINVLDL:
         case TLBINVLDS:
-            _TLBInvalidHandler();
+            _TLBInvalidHandler(support_structure);
             break;
     }
 }

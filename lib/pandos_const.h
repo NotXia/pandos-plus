@@ -175,5 +175,7 @@
 
 #define TERM0ADDR       0x10000254
 
+#define FLASH_READ_ERROR 4
+#define FLASH_WRITE_ERROR 5
 
 #endif
