@@ -6,10 +6,11 @@
 #include <umps3/umps/libumps.h>
 #include <umps3/umps/types.h>
 
-#define IS_FREE_FRAME(frame)    frame->sw_asid == NOPROC
-#define FRAME_ADDRESS(index)    (FRAMEPOOLSTART + (index)*PAGESIZE)
-#define DISABLE_INTERRUPTS      setSTATUS(getSTATUS() & ~IECON)
-#define ENABLE_INTERRUPTS       setSTATUS(getSTATUS() | IECON | IMON)
+#define IS_FREE_FRAME(frame)        frame->sw_asid == NOPROC
+#define FRAME_ADDRESS(index)        (FRAMEPOOLSTART + (index)*PAGESIZE)
+#define FRAME_NUMBER(frame_addr)    (frame_addr - FRAMEPOOLSTART) % PAGESIZE
+#define DISABLE_INTERRUPTS          setSTATUS(getSTATUS() & ~IECON)
+#define ENABLE_INTERRUPTS           setSTATUS(getSTATUS() | IECON | IMON)
 
 static int swap_pool_sem;
 static swap_t swap_pool_table[POOLSIZE];
@@ -144,7 +145,7 @@ static void _loadPage(pteEntry_t *pt_entry, swap_t *frame, memaddr frame_address
     // Aggiornamento della page table
     DISABLE_INTERRUPTS;
     pt_entry->pte_entryLO = pt_entry->pte_entryLO | VALIDON; // Valid bit
-    pt_entry->pte_entryLO = (pt_entry->pte_entryLO & ~ENTRYHI_VPN_MASK) + (page_num << 12); // VPN
+    pt_entry->pte_entryLO = (pt_entry->pte_entryLO & ~ENTRYLO_PFN_MASK) + (FRAME_NUMBER(frame_address) << 12); // PFN
     TLBCLR(); // TODO Ottimizzare
     ENABLE_INTERRUPTS;
 }
