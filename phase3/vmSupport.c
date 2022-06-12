@@ -81,7 +81,7 @@ static void _writePageToFlash(int asid, int page_num, memaddr frame_address) {
     dtpreg_t *flash_dev_reg = (dtpreg_t *)DEV_REG_ADDR(4, asid);
     
     flash_dev_reg->data0 = frame_address;
-    int command = (_getPageIndex(page_num) << 8) + FLASHWRITE;
+    int command = (page_num << 8) + FLASHWRITE;
     
     int res = SYSCALL(DOIO, &flash_dev_reg->command, command, NULL);
     if (res == FLASH_WRITE_ERROR) {
@@ -93,13 +93,13 @@ static void _writePageToFlash(int asid, int page_num, memaddr frame_address) {
  * @brief Legge dal flash drive corretto, i dati di una determinata pagina di un processo.
  * @param asid              ASID del processo
  * @param page_num          Numero della pagina da scrivere
- * @param frame_address     Indirizzo di inizio del frame che contiene la pagina
+ * @param frame_address     Indirizzo di inizio del frame che conterrà la pagina
 */
 static void _readPageFromFlash(int asid, int page_num, memaddr frame_address) {
     dtpreg_t *flash_dev_reg = (dtpreg_t *)DEV_REG_ADDR(4, asid);
 
     flash_dev_reg->data0 = frame_address;
-    int command = (_getPageIndex(page_num) << 8) + FLASHREAD;
+    int command = (page_num << 8) + FLASHREAD;
 
     int res = SYSCALL(DOIO, &flash_dev_reg->command, command, NULL);
     if (res == FLASH_READ_ERROR) {
