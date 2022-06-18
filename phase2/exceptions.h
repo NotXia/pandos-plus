@@ -6,8 +6,6 @@
 #include <pandos_types.h>
 #include <interrupts.h>
 
-#define PREV_PROCESSOR_STATE    ((state_t *)BIOSDATAPAGE)
-
 void exceptionHandler();
 
 #endif
