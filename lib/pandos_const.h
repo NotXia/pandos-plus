@@ -49,6 +49,12 @@
 #define GETPROCESSID  -9
 #define YIELD         -10
 
+#define GETTOD         1
+#define TERMINATE      2
+#define WRITEPRINTER   3
+#define WRITETERMINAL  4
+#define READTERMINAL   5
+
 
 #define PROCESS_PRIO_LOW  0
 #define PROCESS_PRIO_HIGH 1
