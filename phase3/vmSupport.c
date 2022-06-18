@@ -165,7 +165,7 @@ static void _TLBInvalidHandler(support_t *support_structure) {
     swap_t *new_frame = _getFrame(&new_frame_address);
 
     // Manipolazione delle pagine
-    if (!IS_FREE_FRAME(new_frame)) {
+    if (!IS_FREE_FRAME(new_frame)) { // TODO Controllare dirty bit
         _storePage(new_frame, new_frame_address);
     }
     _loadPage(page_pt_entry, new_frame, new_frame_address);
