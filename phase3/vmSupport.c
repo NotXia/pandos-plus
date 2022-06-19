@@ -79,7 +79,7 @@ static swap_t* _getFrame(memaddr *frame_address) {
  * @param frame_address     Indirizzo di inizio del frame che contiene la pagina
 */
 static void _writePageToFlash(int asid, int page_num, memaddr frame_address) {
-    dtpreg_t *flash_dev_reg = (dtpreg_t *)DEV_REG_ADDR(4, asid);
+    dtpreg_t *flash_dev_reg = (dtpreg_t *)DEV_REG_ADDR(4, asid-1);
     
     flash_dev_reg->data0 = frame_address;
     int command = (page_num << 8) + FLASHWRITE;
