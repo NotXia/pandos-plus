@@ -157,7 +157,7 @@ static void _TLBInvalidHandler(support_t *support_structure) {
     SYSCALL(PASSEREN, (int)&swap_pool_sem, NULL, NULL);
 
     // Estrazione informazioni sulla pagina mancante
-    int missing_page_index = _getPageIndex(ENTRYHI_GET_VPN(PREV_PROCESSOR_STATE->entry_hi));
+    int missing_page_index = _getPageIndex(ENTRYHI_GET_VPN(support_structure->sup_exceptState[0].entry_hi));
     pteEntry_t *page_pt_entry = &support_structure->sup_privatePgTbl[missing_page_index];
 
     // Preparazione del frame da usare
@@ -171,7 +171,7 @@ static void _TLBInvalidHandler(support_t *support_structure) {
     _loadPage(page_pt_entry, new_frame, new_frame_address);
 
     SYSCALL(VERHOGEN, (int)&swap_pool_sem, NULL, NULL);
-    LDST(PREV_PROCESSOR_STATE);
+    LDST(&support_structure->sup_exceptState[0]);
 }
 
 /**
