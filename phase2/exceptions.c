@@ -2,6 +2,7 @@
 #include <umps3/umps/libumps.h>
 #include <scheduler.h>
 #include <utilities.h>
+#include "../lib/klog.h"
 
 #define EXCEPTION_CODE          CAUSE_GET_EXCCODE(PREV_PROCESSOR_STATE->cause)
 
@@ -110,14 +111,17 @@ static void _verhogen() {
  * @brief System call per inizializzare un'operazione di I/O.
 */
 static void _doIO() {
-    PARAMETER1(int *, command_address);
+    PARAMETER1(memaddr *, command_address);
     PARAMETER2(int, command_value);
 
-    *command_address = command_value;
+    dtpreg_t *dev_reg = (dtpreg_t *)((memaddr)command_address - 0x4);
+    dev_reg->command = command_value;
     
     softblocked_count++;
     int *dev_semaphore = getIODeviceSemaphore((memaddr)command_address);
     P(dev_semaphore);
+
+    SYSTEMCALL_RETURN(dev_reg->status);
 }
 
 /**
