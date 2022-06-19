@@ -129,6 +129,8 @@
 #define BACKREAD   1
 #define BACKWRITE  2
 
+#define PRINTERWRITE 2
+
 
 /* Memory Constants */
 #define UPROCSTARTADDR 0x800000B0
