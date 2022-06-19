@@ -67,7 +67,7 @@ void generalExceptionHandler() {
     support_t *support_structure = (support_t *)SYSCALL(GETSUPPORTPTR, NULL, NULL, NULL);
 
     switch (CAUSE_GET_EXCCODE(support_structure->sup_exceptState[GENERALEXCEPT].cause)) {
-        case PRIVINSTR: // RI
+        case 8: // System call
             _systemcallHandler();
             break;
     }
