@@ -8,6 +8,11 @@
 #define PARAMETER3(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a3
 #define SYSTEMCALL_RETURN(ret)  PREV_PROCESSOR_STATE->reg_v0 = ret
 
+#define DEV_READY               1
+#define TERMINAL_STATUS(status) (status & 0b11111111)
+#define CHAR_RECEIVED           5
+#define CHAR_TRANSMITTED        5
+
 static int printer_sem[8] = { 1, 1, 1, 1, 1, 1, 1, 1 };
 static int terminal_sem[8] = { 1, 1, 1, 1, 1, 1, 1, 1 };
 
@@ -37,15 +42,13 @@ static void _writePrinter(int device_number) {
     dtpreg_t *dev_reg = (dtpreg_t *)DEV_REG_ADDR(6, device_number);
     int sent = 0;
 
-    if (length < 0 || length > 128 || (int)string < KUSEG) { _terminate(); }
+    if (length < 0 || length > 128 || (memaddr)string < KUSEG) { _terminate(); }
 
     SYSCALL(PASSEREN, &printer_sem[device_number], NULL, NULL);
     for (int i=0; i<length; i++) {
         dev_reg->data0 = *string;
         int status = SYSCALL(DOIO, &dev_reg->command, PRINTERWRITE, NULL);
-        if (status != 1) { // Device ready
-            SYSTEMCALL_RETURN(-status);
-        }
+        if (status != DEV_READY) { SYSTEMCALL_RETURN(-status); }
         sent++;
         string++;
     }
@@ -55,17 +58,53 @@ static void _writePrinter(int device_number) {
 }
 
 /**
- * @brief 
+ * @brief System call per scrivere su terminale.
+ * @param device_number Numero del device.
 */
-static void _writeTerminal() {
+static void _writeTerminal(int device_number) {
+    PARAMETER1(char*, string);
+    PARAMETER2(int, length);
+    termreg_t *dev_reg = (termreg_t *)DEV_REG_ADDR(7, device_number);
+    int sent = 0;
 
+    if (length < 0 || length > 128 || (memaddr)string < KUSEG) { _terminate(); }
+
+    SYSCALL(PASSEREN, &terminal_sem[device_number], NULL, NULL);
+    for (int i = 0; i<length; i++) {
+        int status = SYSCALL(DOIO, &dev_reg->transm_command, (TERMINALWRITE + (*string << 8)), NULL);
+        if (TERMINAL_STATUS(status) != CHAR_TRANSMITTED) { SYSTEMCALL_RETURN(-status); }
+        sent++;
+        string++;
+    }
+    SYSCALL(VERHOGEN, &terminal_sem[device_number], NULL, NULL);
+
+    SYSTEMCALL_RETURN(sent);
 }
 
 /**
- * @brief
+ * @brief System call per leggere da terminale.
+ * @param device_number Numero del device.
 */
-static void _readTerminal() {
+static void _readTerminal(int device_number) {
+    PARAMETER1(int*, buffer);
+    termreg_t *dev_reg = (termreg_t *)DEV_REG_ADDR(7, device_number);
+    int received = 0;
+    char read;
 
+    if ((memaddr)buffer < KUSEG) { _terminate(); }
+
+    SYSCALL(PASSEREN, &terminal_sem[device_number], NULL, NULL);
+    while (1) {
+        int status = SYSCALL(DOIO, &dev_reg->recv_command, TERMINALREAD, NULL);
+        if (TERMINAL_STATUS(status) != CHAR_RECEIVED) { SYSTEMCALL_RETURN(-status); }
+        read = status >> 8;
+        if (read == '\n') { break; }
+        buffer[received] = read;
+        received++;
+    }
+    SYSCALL(VERHOGEN, &terminal_sem[device_number], NULL, NULL);
+
+    SYSTEMCALL_RETURN(received);
 }
 
 /**
@@ -76,8 +115,8 @@ static void _systemcallHandler(support_t *support_structure) {
         case GETTOD:         _getTOD();        break;
         case TERMINATE:      _terminate();     break;
         case WRITEPRINTER:   _writePrinter(support_structure->sup_asid-1);  break;
-        case WRITETERMINAL:  _writeTerminal(); break;
-        case READTERMINAL:   _readTerminal();  break;
+        case WRITETERMINAL:  _writeTerminal(support_structure->sup_asid-1); break;
+        case READTERMINAL:   _readTerminal(support_structure->sup_asid-1);  break;
         default:
             break;
     }

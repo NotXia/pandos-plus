@@ -130,6 +130,8 @@
 #define BACKWRITE  2
 
 #define PRINTERWRITE 2
+#define TERMINALWRITE 2
+#define TERMINALREAD 2
 
 
 /* Memory Constants */
