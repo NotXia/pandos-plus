@@ -2,5 +2,6 @@
 #define PANDOS_SYSSUPPORT_H_INCLUDED
 
 void generalExceptionHandler();
+void trapExceptionHandler();
 
-#endif 
+#endif

@@ -12,7 +12,7 @@
 #define DISABLE_INTERRUPTS          setSTATUS(getSTATUS() & ~IECON)
 #define ENABLE_INTERRUPTS           setSTATUS(getSTATUS() | IECON | IMON)
 
-static int swap_pool_sem;
+static semaphore_t swap_pool_sem;
 static swap_t swap_pool_table[POOLSIZE];
 static int swap_pool_index; // Indice della pagina più datata
 
@@ -20,7 +20,8 @@ static int swap_pool_index; // Indice della pagina più datata
  * @brief Inizializza le strutture dati per la swap pool.
 */
 void initSwapStructs() {
-    swap_pool_sem = 1;
+    swap_pool_sem.val = 1;
+    swap_pool_sem.user_asid = NOPROC;
     swap_pool_index = 0;
 
     for (int i=0; i<POOLSIZE; i++) {
@@ -154,7 +155,7 @@ static void _loadPage(pteEntry_t *pt_entry, swap_t *frame, memaddr frame_address
  * @brief Gestore delle eccezioni TLB-invalid.
 */
 static void _TLBInvalidHandler(support_t *support_structure) {
-    SYSCALL(PASSEREN, (int)&swap_pool_sem, NULL, NULL);
+    P(&swap_pool_sem, support_structure->sup_asid);
 
     // Estrazione informazioni sulla pagina mancante
     int missing_page_index = _getPageIndex(ENTRYHI_GET_VPN(support_structure->sup_exceptState[PGFAULTEXCEPT].entry_hi));
@@ -170,7 +171,7 @@ static void _TLBInvalidHandler(support_t *support_structure) {
     }
     _loadPage(page_pt_entry, new_frame, new_frame_address);
 
-    SYSCALL(VERHOGEN, (int)&swap_pool_sem, NULL, NULL);
+    V(&swap_pool_sem);
     LDST(&support_structure->sup_exceptState[PGFAULTEXCEPT]);
 }
 
@@ -189,5 +190,12 @@ void TLBExceptionHandler() {
         case TLBINVLDS:
             _TLBInvalidHandler(support_structure);
             break;
+    }
+}
+
+void releaseSwapPoolSem() {
+    support_t *support_structure = (support_t *)SYSCALL(GETSUPPORTPTR, NULL, NULL, NULL);
+    if (swap_pool_sem.user_asid == support_structure->sup_asid) {
+        V(&swap_pool_sem);
     }
 }

@@ -5,4 +5,6 @@ void initSwapStructs();
 void TLBRefillHandler();
 void TLBExceptionHandler();
 
+void releaseSwapPoolSem();
+
 #endif
