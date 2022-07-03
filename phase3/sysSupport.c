@@ -19,6 +19,9 @@
 static semaphore_t printer_sem[8];
 static semaphore_t terminal_sem[8];
 
+/**
+ * @brief Inizializza i semafori.
+*/
 void initSysStructs() {
     for (int i=0; i<8; i++) {
         printer_sem[i].val = 1;
