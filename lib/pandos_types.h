@@ -90,4 +90,10 @@ typedef struct swap_t {
     pteEntry_t *sw_pte;    /* page's PTE entry.	*/
 } swap_t;
 
+/* Struttura di supporto per mantenere il valore e l'utilizzatore del semaforo */
+typedef struct semaphore {
+    int val, user_asid;
+} semaphore_t;
+
+
 #endif

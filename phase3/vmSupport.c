@@ -12,7 +12,7 @@
 #define DISABLE_INTERRUPTS          setSTATUS(getSTATUS() & ~IECON)
 #define ENABLE_INTERRUPTS           setSTATUS(getSTATUS() | IECON | IMON)
 
-static int swap_pool_sem;
+static semaphore_t swap_pool_sem;
 static swap_t swap_pool_table[POOLSIZE];
 static int swap_pool_index; // Indice della pagina più datata
 
@@ -20,7 +20,8 @@ static int swap_pool_index; // Indice della pagina più datata
  * @brief Inizializza le strutture dati per la swap pool.
 */
 void initSwapStructs() {
-    swap_pool_sem = 1;
+    swap_pool_sem.val = 1;
+    swap_pool_sem.user_asid = NOPROC;
     swap_pool_index = 0;
 
     for (int i=0; i<POOLSIZE; i++) {
@@ -79,7 +80,7 @@ static swap_t* _getFrame(memaddr *frame_address) {
  * @param frame_address     Indirizzo di inizio del frame che contiene la pagina
 */
 static void _writePageToFlash(int asid, int page_num, memaddr frame_address) {
-    dtpreg_t *flash_dev_reg = (dtpreg_t *)DEV_REG_ADDR(4, asid);
+    dtpreg_t *flash_dev_reg = (dtpreg_t *)DEV_REG_ADDR(4, asid-1);
     
     flash_dev_reg->data0 = frame_address;
     int command = (page_num << 8) + FLASHWRITE;
@@ -154,10 +155,10 @@ static void _loadPage(pteEntry_t *pt_entry, swap_t *frame, memaddr frame_address
  * @brief Gestore delle eccezioni TLB-invalid.
 */
 static void _TLBInvalidHandler(support_t *support_structure) {
-    SYSCALL(PASSEREN, (int)&swap_pool_sem, NULL, NULL);
+    P(&swap_pool_sem, support_structure->sup_asid);
 
     // Estrazione informazioni sulla pagina mancante
-    int missing_page_index = _getPageIndex(ENTRYHI_GET_VPN(PREV_PROCESSOR_STATE->entry_hi));
+    int missing_page_index = _getPageIndex(ENTRYHI_GET_VPN(support_structure->sup_exceptState[PGFAULTEXCEPT].entry_hi));
     pteEntry_t *page_pt_entry = &support_structure->sup_privatePgTbl[missing_page_index];
 
     // Preparazione del frame da usare
@@ -170,8 +171,8 @@ static void _TLBInvalidHandler(support_t *support_structure) {
     }
     _loadPage(page_pt_entry, new_frame, new_frame_address);
 
-    SYSCALL(VERHOGEN, (int)&swap_pool_sem, NULL, NULL);
-    LDST(PREV_PROCESSOR_STATE);
+    V(&swap_pool_sem);
+    LDST(&support_structure->sup_exceptState[PGFAULTEXCEPT]);
 }
 
 /**
@@ -180,7 +181,7 @@ static void _TLBInvalidHandler(support_t *support_structure) {
 void TLBExceptionHandler() {
     support_t *support_structure = (support_t *)SYSCALL(GETSUPPORTPTR, NULL, NULL, NULL);
     
-    switch (CAUSE_GET_EXCCODE(support_structure->sup_exceptState[0].cause)) {
+    switch (CAUSE_GET_EXCCODE(support_structure->sup_exceptState[PGFAULTEXCEPT].cause)) {
         case TLBMOD:
             // Trap
             break;
@@ -189,5 +190,12 @@ void TLBExceptionHandler() {
         case TLBINVLDS:
             _TLBInvalidHandler(support_structure);
             break;
+    }
+}
+
+void releaseSwapPoolSem() {
+    support_t *support_structure = (support_t *)SYSCALL(GETSUPPORTPTR, NULL, NULL, NULL);
+    if (swap_pool_sem.user_asid == support_structure->sup_asid) {
+        V(&swap_pool_sem);
     }
 }

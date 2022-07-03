@@ -49,6 +49,12 @@
 #define GETPROCESSID  -9
 #define YIELD         -10
 
+#define GETTOD         1
+#define TERMINATE      2
+#define WRITEPRINTER   3
+#define WRITETERMINAL  4
+#define READTERMINAL   5
+
 
 #define PROCESS_PRIO_LOW  0
 #define PROCESS_PRIO_HIGH 1
@@ -122,6 +128,10 @@
 #define FLASHWRITE 3
 #define BACKREAD   1
 #define BACKWRITE  2
+
+#define PRINTERWRITE 2
+#define TERMINALWRITE 2
+#define TERMINALREAD 2
 
 
 /* Memory Constants */
