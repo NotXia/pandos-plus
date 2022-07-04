@@ -41,10 +41,10 @@ static support_t _createSupportStructure(int asid) {
     // Inizializzazione tabella delle pagine
     for (int i=0; i<31; i++) {
         support.sup_privatePgTbl[i].pte_entryHI = ((0x80000+i) << ENTRYHI_VPN_BIT) + (asid << ENTRYHI_ASID_BIT);
-        support.sup_privatePgTbl[i].pte_entryLO = 0 | ENTRYLO_DIRTY | ENTRYLO_GLOBAL;
+        support.sup_privatePgTbl[i].pte_entryLO = 0 | ENTRYLO_DIRTY;
     }
     support.sup_privatePgTbl[31].pte_entryHI = ((0xBFFFF) << ENTRYHI_VPN_BIT) + (asid << ENTRYHI_ASID_BIT);
-    support.sup_privatePgTbl[31].pte_entryLO = 0 | ENTRYLO_DIRTY | ENTRYLO_GLOBAL;
+    support.sup_privatePgTbl[31].pte_entryLO = 0 | ENTRYLO_DIRTY;
 
     return support;
 }
