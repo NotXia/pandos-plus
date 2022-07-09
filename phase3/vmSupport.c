@@ -2,11 +2,13 @@
 #include <pandos_types.h>
 #include <listx.h>
 #include <initial.h>
+#include <utilities.h>
 #include <umps3/umps/cp0.h>
 #include <umps3/umps/libumps.h>
 #include <umps3/umps/types.h>
+#include <umps3/umps/arch.h>
 
-#define IS_FREE_FRAME(frame)        frame->sw_asid == NOPROC
+#define IS_FREE_FRAME(frame)        (frame->sw_asid == NOPROC)
 #define FRAME_ADDRESS(index)        (FRAMEPOOLSTART + (index)*PAGESIZE)
 #define FRAME_NUMBER(frame_addr)    (frame_addr - FRAMEPOOLSTART) % PAGESIZE
 #define DISABLE_INTERRUPTS          setSTATUS(getSTATUS() & ~IECON)
@@ -85,7 +87,7 @@ static void _writePageToFlash(int asid, int page_num, memaddr frame_address) {
     flash_dev_reg->data0 = frame_address;
     int command = (page_num << 8) + FLASHWRITE;
     
-    int res = SYSCALL(DOIO, &flash_dev_reg->command, command, NULL);
+    int res = SYSCALL(DOIO, (memaddr)&flash_dev_reg->command, command, 0);
     if (res == FLASH_WRITE_ERROR) {
         // Trap
     }
@@ -103,7 +105,7 @@ static void _readPageFromFlash(int asid, int page_num, memaddr frame_address) {
     flash_dev_reg->data0 = frame_address;
     int command = (page_num << 8) + FLASHREAD;
 
-    int res = SYSCALL(DOIO, &flash_dev_reg->command, command, NULL);
+    int res = SYSCALL(DOIO, (memaddr)&flash_dev_reg->command, command, 0);
     if (res == FLASH_READ_ERROR) {
         // Trap
     }
@@ -179,7 +181,7 @@ static void _TLBInvalidHandler(support_t *support_structure) {
  * @brief Gestore delle eccezioni TLB.
 */
 void TLBExceptionHandler() {
-    support_t *support_structure = (support_t *)SYSCALL(GETSUPPORTPTR, NULL, NULL, NULL);
+    support_t *support_structure = (support_t *)SYSCALL(GETSUPPORTPTR, 0, 0, 0);
     
     switch (CAUSE_GET_EXCCODE(support_structure->sup_exceptState[PGFAULTEXCEPT].cause)) {
         case TLBMOD:
@@ -194,7 +196,7 @@ void TLBExceptionHandler() {
 }
 
 void releaseSwapPoolSem() {
-    support_t *support_structure = (support_t *)SYSCALL(GETSUPPORTPTR, NULL, NULL, NULL);
+    support_t *support_structure = (support_t *)SYSCALL(GETSUPPORTPTR, 0, 0, 0);
     if (swap_pool_sem.user_asid == support_structure->sup_asid) {
         V(&swap_pool_sem);
     }

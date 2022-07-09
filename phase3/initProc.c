@@ -33,10 +33,10 @@ static support_t _createSupportStructure(int asid) {
     // Inizializzazione gestori eccezioni
     support.sup_exceptContext[PGFAULTEXCEPT].pc = (memaddr)TLBExceptionHandler;
     support.sup_exceptContext[PGFAULTEXCEPT].status = ALLOFF | (IMON | IEPON) | TEBITON; // Interrupt abilitati + PLT abilitato + Kernel mode
-    support.sup_exceptContext[PGFAULTEXCEPT].stackPtr = &support.sup_stackTLB[499];
+    support.sup_exceptContext[PGFAULTEXCEPT].stackPtr = (memaddr)&support.sup_stackTLB[499];
     support.sup_exceptContext[GENERALEXCEPT].pc = (memaddr)generalExceptionHandler;
     support.sup_exceptContext[GENERALEXCEPT].status = ALLOFF | (IMON | IEPON) | TEBITON; // Interrupt abilitati + PLT abilitato + Kernel mode
-    support.sup_exceptContext[PGFAULTEXCEPT].stackPtr = &support.sup_stackGen[499];
+    support.sup_exceptContext[PGFAULTEXCEPT].stackPtr = (memaddr)&support.sup_stackGen[499];
 
     // Inizializzazione tabella delle pagine
     for (int i=0; i<31; i++) {
@@ -71,5 +71,5 @@ void test() {
         _startProcess(i);
     }
 
-    SYSCALL(PASSEREN, &end_sem, NULL, NULL);
+    SYSCALL(PASSEREN, (memaddr)&end_sem, 0, 0);
 }

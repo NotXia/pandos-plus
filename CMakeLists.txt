@@ -18,9 +18,11 @@ include_directories("lib")
 add_subdirectory("lib")
 add_subdirectory("phase1")
 add_subdirectory("phase2")
+add_subdirectory("phase3")
 
 # add_subdirectory("phase1/test")
-add_subdirectory("phase2/test")
+# add_subdirectory("phase2/test")
+add_subdirectory("phase3/test")
 
 # Esegue umps3-elf2umps
 # Converte i file oggetto ELF prodotti dalla cross-compilazione in file oggetto riconosciuti da umps3

@@ -1,8 +1,11 @@
-#include <sysSupport.h>
+#include "sysSupport.h"
 #include <pandos_types.h>
 #include <initial.h> // TODO Togliere in futuro
 #include <utilities.h>
 #include <vmSupport.h>
+#include <umps3/umps/libumps.h>
+#include <umps3/umps/arch.h>
+#include <umps3/umps/cp0.h>
 
 #define SYSTEMCALL_CODE         ((int)PREV_PROCESSOR_STATE->reg_a0)
 #define PARAMETER1(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a1
@@ -44,7 +47,7 @@ static void _getTOD() {
  * @brief System call per terminare un processo.
 */
 static void _terminate() {
-    SYSCALL(TERMPROCESS, 0, NULL, NULL);
+    SYSCALL(TERMPROCESS, 0, 0, 0);
 }
 
 
@@ -63,7 +66,7 @@ static void _writePrinter(int asid) {
     P(&printer_sem[DEVICE_OF(asid)], asid);
     for (int i=0; i<length; i++) {
         dev_reg->data0 = *string;
-        int status = SYSCALL(DOIO, &dev_reg->command, PRINTERWRITE, NULL);
+        int status = SYSCALL(DOIO, (memaddr)&dev_reg->command, PRINTERWRITE, 0);
         if (status != DEV_READY) { SYSTEMCALL_RETURN(-status); }
         sent++;
         string++;
@@ -87,7 +90,7 @@ static void _writeTerminal(int asid) {
 
     P(&terminal_sem[DEVICE_OF(asid)], asid);
     for (int i = 0; i<length; i++) {
-        int status = SYSCALL(DOIO, &dev_reg->transm_command, (TERMINALWRITE + (*string << 8)), NULL);
+        int status = SYSCALL(DOIO, (memaddr)&dev_reg->transm_command, (TERMINALWRITE + (*string << 8)), 0);
         if (TERMINAL_STATUS(status) != CHAR_TRANSMITTED) { SYSTEMCALL_RETURN(-status); }
         sent++;
         string++;
@@ -111,7 +114,7 @@ static void _readTerminal(int asid) {
     
     P(&terminal_sem[DEVICE_OF(asid)], asid);
     while (1) {
-        int status = SYSCALL(DOIO, &dev_reg->recv_command, TERMINALREAD, NULL);
+        int status = SYSCALL(DOIO, (memaddr)&dev_reg->recv_command, TERMINALREAD, 0);
         if (TERMINAL_STATUS(status) != CHAR_RECEIVED) { SYSTEMCALL_RETURN(-status); }
         read = status >> 8;
         if (read == '\n') { break; }
@@ -144,7 +147,7 @@ static void _systemcallHandler(support_t *support_structure) {
  * @brief Gestore delle general exceptions.
 */
 void generalExceptionHandler() {
-    support_t *support_structure = (support_t *)SYSCALL(GETSUPPORTPTR, NULL, NULL, NULL);
+    support_t *support_structure = (support_t *)SYSCALL(GETSUPPORTPTR, 0, 0, 0);
 
     switch (CAUSE_GET_EXCCODE(support_structure->sup_exceptState[GENERALEXCEPT].cause)) {
         case 8: // System call
@@ -157,7 +160,7 @@ void generalExceptionHandler() {
  * @brief Gestore delle trap exceptions.
 */
 void trapExceptionHandler() {
-    support_t *support_structure = (support_t *)SYSCALL(GETSUPPORTPTR, NULL, NULL, NULL);
+    support_t *support_structure = (support_t *)SYSCALL(GETSUPPORTPTR, 0, 0, 0);
     
     for (int i = 0; i<8; i++) {
         if (printer_sem[i].user_asid == support_structure->sup_asid) { V(&printer_sem[i]); }
