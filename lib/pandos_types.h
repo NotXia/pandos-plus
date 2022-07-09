@@ -34,10 +34,12 @@ typedef struct context_t {
 
 /* Support level descriptor */
 typedef struct support_t {
-    int        sup_asid;                        /* process ID					*/
-    state_t    sup_exceptState[2];              /* old state exceptions			*/
-    context_t  sup_exceptContext[2];            /* new contexts for passing up	*/
-    pteEntry_t sup_privatePgTbl[USERPGTBLSIZE]; /* user page table				*/
+    int        sup_asid;                        /* process ID					    */
+    state_t    sup_exceptState[2];              /* old state exceptions			    */
+    context_t  sup_exceptContext[2];            /* new contexts for passing up	    */
+    pteEntry_t sup_privatePgTbl[USERPGTBLSIZE]; /* user page table				    */
+    int sup_stackTLB[500];                      /* Stack per le TLB exception       */
+    int sup_stackGen[500];                      /* Stack per le eccezioni generali  */
 } support_t;
 
 
