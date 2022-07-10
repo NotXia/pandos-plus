@@ -6,13 +6,15 @@
 #include <umps3/umps/libumps.h>
 #include <umps3/umps/arch.h>
 #include <umps3/umps/cp0.h>
+#include <klog.h>
 
-#define SYSTEMCALL_CODE         ((int)PREV_PROCESSOR_STATE->reg_a0)
-#define PARAMETER1(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a1
-#define PARAMETER2(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a2
-#define PARAMETER3(type, name)  type name = (type)PREV_PROCESSOR_STATE->reg_a3
-#define SYSTEMCALL_RETURN(ret)  PREV_PROCESSOR_STATE->reg_v0 = ret
-#define DEVICE_OF(asid)         (asid - 1)
+#define PROCESSOR_STATE(supp_struct)            (supp_struct->sup_exceptState[GENERALEXCEPT])
+#define SYSTEMCALL_CODE(supp_struct)            ((int)PROCESSOR_STATE(supp_struct).reg_a0)
+#define PARAMETER1(type, name, supp_struct)     type name = (type)PROCESSOR_STATE(supp_struct).reg_a1
+#define PARAMETER2(type, name, supp_struct)     type name = (type)PROCESSOR_STATE(supp_struct).reg_a2
+#define PARAMETER3(type, name, supp_struct)     type name = (type)PROCESSOR_STATE(supp_struct).reg_a3
+#define SYSTEMCALL_RETURN(ret, supp_struct)     PROCESSOR_STATE(supp_struct).reg_v0 = ret
+#define DEVICE_OF(asid)                         (asid - 1)
 
 #define DEV_READY               1
 #define TERMINAL_STATUS(status) (status & 0b11111111)
@@ -37,10 +39,10 @@ void initSysStructs() {
 /**
  * @brief System call per restituire il valore del TOD.
 */
-static void _getTOD() {
+static void _getTOD(support_t *support_structure) {
     cpu_t curr_time;
     STCK(curr_time);
-    SYSTEMCALL_RETURN(curr_time);
+    SYSTEMCALL_RETURN(curr_time, support_structure);
 }
 
 /**
@@ -55,9 +57,9 @@ static void _terminate() {
  * @brief System call per scrivere su stampante.
  * @param asid ASID del processo.
 */
-static void _writePrinter(int asid) {
-    PARAMETER1(char*, string);
-    PARAMETER2(int, length);
+static void _writePrinter(int asid, support_t *support_structure) {
+    PARAMETER1(char*, string, support_structure);
+    PARAMETER2(int, length, support_structure);
     dtpreg_t *dev_reg = (dtpreg_t *)DEV_REG_ADDR(6, DEVICE_OF(asid));
     int sent = 0;
 
@@ -67,22 +69,22 @@ static void _writePrinter(int asid) {
     for (int i=0; i<length; i++) {
         dev_reg->data0 = *string;
         int status = SYSCALL(DOIO, (memaddr)&dev_reg->command, PRINTERWRITE, 0);
-        if (status != DEV_READY) { SYSTEMCALL_RETURN(-status); }
+        if (status != DEV_READY) { SYSTEMCALL_RETURN(-status, support_structure); }
         sent++;
         string++;
     }
     V(&printer_sem[DEVICE_OF(asid)]);
 
-    SYSTEMCALL_RETURN(sent);
+    SYSTEMCALL_RETURN(sent, support_structure);
 }
 
 /**
  * @brief System call per scrivere su terminale.
  * @param asid ASID del processo.
 */
-static void _writeTerminal(int asid) {
-    PARAMETER1(char*, string);
-    PARAMETER2(int, length);
+static void _writeTerminal(int asid, support_t *support_structure) {
+    PARAMETER1(char*, string, support_structure);
+    PARAMETER2(int, length, support_structure);
     termreg_t *dev_reg = (termreg_t *)DEV_REG_ADDR(7, DEVICE_OF(asid));
     int sent = 0;
 
@@ -91,21 +93,21 @@ static void _writeTerminal(int asid) {
     P(&terminal_sem[DEVICE_OF(asid)], asid);
     for (int i = 0; i<length; i++) {
         int status = SYSCALL(DOIO, (memaddr)&dev_reg->transm_command, (TERMINALWRITE + (*string << 8)), 0);
-        if (TERMINAL_STATUS(status) != CHAR_TRANSMITTED) { SYSTEMCALL_RETURN(-status); }
+        if (TERMINAL_STATUS(status) != CHAR_TRANSMITTED) { SYSTEMCALL_RETURN(-status, support_structure); }
         sent++;
         string++;
     }
     V(&terminal_sem[DEVICE_OF(asid)]);
 
-    SYSTEMCALL_RETURN(sent);
+    SYSTEMCALL_RETURN(sent, support_structure);
 }
 
 /**
  * @brief System call per leggere da terminale.
  * @param asid ASID del processo.
 */
-static void _readTerminal(int asid) {
-    PARAMETER1(int*, buffer);
+static void _readTerminal(int asid, support_t *support_structure) {
+    PARAMETER1(int*, buffer, support_structure);
     termreg_t *dev_reg = (termreg_t *)DEV_REG_ADDR(7, DEVICE_OF(asid));
     int received = 0;
     char read;
@@ -115,7 +117,7 @@ static void _readTerminal(int asid) {
     P(&terminal_sem[DEVICE_OF(asid)], asid);
     while (1) {
         int status = SYSCALL(DOIO, (memaddr)&dev_reg->recv_command, TERMINALREAD, 0);
-        if (TERMINAL_STATUS(status) != CHAR_RECEIVED) { SYSTEMCALL_RETURN(-status); }
+        if (TERMINAL_STATUS(status) != CHAR_RECEIVED) { SYSTEMCALL_RETURN(-status, support_structure); }
         read = status >> 8;
         if (read == '\n') { break; }
         buffer[received] = read;
@@ -123,19 +125,21 @@ static void _readTerminal(int asid) {
     }
     V(&terminal_sem[DEVICE_OF(asid)]);
 
-    SYSTEMCALL_RETURN(received);
+    SYSTEMCALL_RETURN(received, support_structure);
 }
 
 /**
  * @brief Gestore delle system call.
 */
 static void _systemcallHandler(support_t *support_structure) {
-    switch (SYSTEMCALL_CODE) {
-        case GETTOD:         _getTOD();        break;
-        case TERMINATE:      _terminate();     break;
-        case WRITEPRINTER:   _writePrinter(support_structure->sup_asid);  break;
-        case WRITETERMINAL:  _writeTerminal(support_structure->sup_asid); break;
-        case READTERMINAL:   _readTerminal(support_structure->sup_asid);  break;
+    support_structure->sup_exceptState[GENERALEXCEPT].pc_epc += WORD_SIZE;
+
+    switch (SYSTEMCALL_CODE(support_structure)) {
+        case GETTOD:         _getTOD(support_structure);        break;
+        case TERMINATE:      _terminate(support_structure);     break;
+        case WRITEPRINTER:   _writePrinter(support_structure->sup_asid, support_structure);  break;
+        case WRITETERMINAL:  _writeTerminal(support_structure->sup_asid, support_structure); break;
+        case READTERMINAL:   _readTerminal(support_structure->sup_asid, support_structure);  break;
         default:
             break;
     }
@@ -152,6 +156,9 @@ void generalExceptionHandler() {
     switch (CAUSE_GET_EXCCODE(support_structure->sup_exceptState[GENERALEXCEPT].cause)) {
         case 8: // System call
             _systemcallHandler(support_structure);
+            break;
+        default:
+            trapExceptionHandler();
             break;
     }
 }
