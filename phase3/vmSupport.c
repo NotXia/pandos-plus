@@ -3,16 +3,20 @@
 #include <listx.h>
 #include <initial.h>
 #include <utilities.h>
+#include <sysSupport.h>
 #include <umps3/umps/cp0.h>
 #include <umps3/umps/libumps.h>
 #include <umps3/umps/types.h>
 #include <umps3/umps/arch.h>
+#include <klog.h>
 
 #define IS_FREE_FRAME(frame)        (frame->sw_asid == NOPROC)
 #define FRAME_ADDRESS(index)        (FRAMEPOOLSTART + (index)*PAGESIZE)
-#define FRAME_NUMBER(frame_addr)    (frame_addr - FRAMEPOOLSTART) % PAGESIZE
+#define FRAME_NUMBER(frame_addr)    (frame_addr - FRAMEPOOLSTART) / PAGESIZE
 #define DISABLE_INTERRUPTS          setSTATUS(getSTATUS() & ~IECON)
 #define ENABLE_INTERRUPTS           setSTATUS(getSTATUS() | IECON | IMON)
+
+#define GET_VPN(entry_hi)           ((entry_hi & 0b11111111111111111111000000000000) >> VPNSHIFT)
 
 static semaphore_t swap_pool_sem;
 static swap_t swap_pool_table[POOLSIZE];
@@ -42,20 +46,21 @@ static int _getPageIndex(memaddr vpn) {
     if (vpn == 0xBFFFF) {
         return 31;
     }
-    return vpn % 0x8000;
+    return vpn % 0x80000;
 }
 
 /**
  * @brief Gestore TLB refill.
 */
 void TLBRefillHandler() {
-    int page_index = _getPageIndex(ENTRYHI_GET_VPN(PREV_PROCESSOR_STATE->entry_hi));
+    int page_index = _getPageIndex(GET_VPN(PREV_PROCESSOR_STATE->entry_hi));
+    
     pteEntry_t pt_entry = curr_process->p_supportStruct->sup_privatePgTbl[page_index];
 
     setENTRYHI(pt_entry.pte_entryHI);
     setENTRYLO(pt_entry.pte_entryLO);
     TLBWR();
-
+    
     LDST(PREV_PROCESSOR_STATE);
 }
 
@@ -89,7 +94,7 @@ static void _writePageToFlash(int asid, int page_num, memaddr frame_address) {
     
     int res = SYSCALL(DOIO, (memaddr)&flash_dev_reg->command, command, 0);
     if (res == FLASH_WRITE_ERROR) {
-        // Trap
+        trapExceptionHandler();
     }
 }
 
@@ -100,14 +105,15 @@ static void _writePageToFlash(int asid, int page_num, memaddr frame_address) {
  * @param frame_address     Indirizzo di inizio del frame che conterrà la pagina
 */
 static void _readPageFromFlash(int asid, int page_num, memaddr frame_address) {
-    dtpreg_t *flash_dev_reg = (dtpreg_t *)DEV_REG_ADDR(4, asid);
+    dtpreg_t *flash_dev_reg = (dtpreg_t *)DEV_REG_ADDR(4, asid-1);
 
     flash_dev_reg->data0 = frame_address;
     int command = (page_num << 8) + FLASHREAD;
 
     int res = SYSCALL(DOIO, (memaddr)&flash_dev_reg->command, command, 0);
+
     if (res == FLASH_READ_ERROR) {
-        // Trap
+        trapExceptionHandler();
     }
 }
 
@@ -124,7 +130,7 @@ static void _storePage(swap_t *frame, memaddr frame_address) {
     ENABLE_INTERRUPTS;
 
     // Salvataggio della vecchia pagina nel flash drive del processo
-    _writePageToFlash(frame->sw_asid, frame->sw_pageNo, frame_address);
+    _writePageToFlash(frame->sw_asid, _getPageIndex(frame->sw_pageNo), frame_address);
 }
 
 /**
@@ -135,20 +141,20 @@ static void _storePage(swap_t *frame, memaddr frame_address) {
 */
 static void _loadPage(pteEntry_t *pt_entry, swap_t *frame, memaddr frame_address) {
     int asid = ENTRYHI_GET_ASID(pt_entry->pte_entryHI);
-    int page_num = _getPageIndex(ENTRYHI_GET_VPN(pt_entry->pte_entryHI));
+    int page_num = _getPageIndex(GET_VPN(pt_entry->pte_entryHI));
 
     // Caricamento della nuova pagina in memoria
     _readPageFromFlash(asid, page_num, frame_address);
 
     // Aggiornamento descrittore del frame
     frame->sw_asid = asid;
-    frame->sw_pageNo = page_num;
+    frame->sw_pageNo = GET_VPN(pt_entry->pte_entryHI);
     frame->sw_pte = pt_entry;
 
     // Aggiornamento della page table
     DISABLE_INTERRUPTS;
-    pt_entry->pte_entryLO = pt_entry->pte_entryLO | VALIDON; // Valid bit
-    pt_entry->pte_entryLO = (pt_entry->pte_entryLO & ~ENTRYLO_PFN_MASK) + (FRAME_NUMBER(frame_address) << 12); // PFN
+    pt_entry->pte_entryLO = (pt_entry->pte_entryLO & ~ENTRYLO_PFN_MASK) | frame_address | VALIDON;
+
     TLBCLR(); // TODO Ottimizzare
     ENABLE_INTERRUPTS;
 }
@@ -160,7 +166,7 @@ static void _TLBInvalidHandler(support_t *support_structure) {
     P(&swap_pool_sem, support_structure->sup_asid);
 
     // Estrazione informazioni sulla pagina mancante
-    int missing_page_index = _getPageIndex(ENTRYHI_GET_VPN(support_structure->sup_exceptState[PGFAULTEXCEPT].entry_hi));
+    int missing_page_index = _getPageIndex(GET_VPN(support_structure->sup_exceptState[PGFAULTEXCEPT].entry_hi));
     pteEntry_t *page_pt_entry = &support_structure->sup_privatePgTbl[missing_page_index];
 
     // Preparazione del frame da usare
@@ -185,12 +191,15 @@ void TLBExceptionHandler() {
     
     switch (CAUSE_GET_EXCCODE(support_structure->sup_exceptState[PGFAULTEXCEPT].cause)) {
         case TLBMOD:
-            // Trap
+            trapExceptionHandler();
             break;
 
         case TLBINVLDL:
         case TLBINVLDS:
             _TLBInvalidHandler(support_structure);
+            break;
+        default:
+            PANIC();
             break;
     }
 }
