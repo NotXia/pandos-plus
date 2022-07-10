@@ -14,7 +14,7 @@
 #define FRAME_ADDRESS(index)        (FRAMEPOOLSTART + (index)*PAGESIZE)
 #define FRAME_NUMBER(frame_addr)    (frame_addr - FRAMEPOOLSTART) / PAGESIZE
 #define DISABLE_INTERRUPTS          setSTATUS(getSTATUS() & ~IECON)
-#define ENABLE_INTERRUPTS           setSTATUS(getSTATUS() | IECON | IMON)
+#define ENABLE_INTERRUPTS           setSTATUS(getSTATUS() | IECON)
 
 #define GET_VPN(entry_hi)           ((entry_hi & 0b11111111111111111111000000000000) >> VPNSHIFT)
 
@@ -60,7 +60,7 @@ void TLBRefillHandler() {
     setENTRYHI(pt_entry.pte_entryHI);
     setENTRYLO(pt_entry.pte_entryLO);
     TLBWR();
-    
+
     LDST(PREV_PROCESSOR_STATE);
 }
 
@@ -130,7 +130,7 @@ static void _storePage(swap_t *frame, memaddr frame_address) {
     ENABLE_INTERRUPTS;
 
     // Salvataggio della vecchia pagina nel flash drive del processo
-    _writePageToFlash(frame->sw_asid, _getPageIndex(frame->sw_pageNo), frame_address);
+    _writePageToFlash(frame->sw_asid, frame->sw_pageNo, frame_address);
 }
 
 /**
@@ -148,7 +148,7 @@ static void _loadPage(pteEntry_t *pt_entry, swap_t *frame, memaddr frame_address
 
     // Aggiornamento descrittore del frame
     frame->sw_asid = asid;
-    frame->sw_pageNo = GET_VPN(pt_entry->pte_entryHI);
+    frame->sw_pageNo = page_num;
     frame->sw_pte = pt_entry;
 
     // Aggiornamento della page table
