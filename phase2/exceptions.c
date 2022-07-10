@@ -2,7 +2,6 @@
 #include <umps3/umps/libumps.h>
 #include <scheduler.h>
 #include <utilities.h>
-#include "../lib/klog.h"
 
 #define EXCEPTION_CODE          CAUSE_GET_EXCCODE(PREV_PROCESSOR_STATE->cause)
 

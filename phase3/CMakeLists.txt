@@ -6,10 +6,13 @@ add_library(sysSupport sysSupport.c)
 target_link_libraries(sysSupport PRIVATE initial)
 target_link_libraries(sysSupport PRIVATE utilities)
 target_link_libraries(sysSupport PRIVATE vmSupport)
+target_link_libraries(sysSupport PRIVATE klog)
 
 add_library(vmSupport vmSupport.c)
 target_link_libraries(vmSupport PRIVATE initial)
 target_link_libraries(vmSupport PRIVATE utilities)
+target_link_libraries(vmSupport PRIVATE sysSupport)
+target_link_libraries(vmSupport PRIVATE klog)
 
 
 set_target_properties(

@@ -1,4 +1,5 @@
 add_library(utilities utilities.c)
+add_library(klog klog.c)
 
 set_target_properties(
     utilities
