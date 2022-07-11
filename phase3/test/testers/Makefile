@@ -3,11 +3,13 @@
 #
 ifneq ($(wildcard /usr/bin/umps3),)
 	UMPS3_DIR_PREFIX = /usr
+	LIBDIR = $(UMPS3_DIR_PREFIX)/lib/x86_64-linux-gnu/umps3
 else
 	UMPS3_DIR_PREFIX = /usr/local
+	LIBDIR = $(UMPS3_DIR_PREFIX)/lib/umps3
 endif
 
-LIBDIR = $(UMPS3_DIR_PREFIX)/lib/umps3
+# LIBDIR = $(UMPS3_DIR_PREFIX)/lib/umps3
 INCDIR = $(UMPS3_DIR_PREFIX)/include/umps3/umps
 SUPDIR = $(UMPS3_DIR_PREFIX)/share/umps3
 
