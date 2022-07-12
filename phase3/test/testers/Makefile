@@ -37,7 +37,7 @@ all: printerTest.umps strConcat.umps \
 	
 	
 %.o: %.c $(TDEFS)
-	$(CC) $(CFLAGS) $<
+	$(CC) $(CFLAGS) -I${INCDIR} $<
 	
 %.t: %.o print.o  $(LIBDIR)/crti.o
 	$(LD) $(LDAOUTFLAGS) $(LIBDIR)/crti.o $< print.o $(LIBDIR)/libumps.o -o $@
