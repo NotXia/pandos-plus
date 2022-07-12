@@ -5,7 +5,7 @@
 cmake_minimum_required(VERSION 3.3)
 project(
 	PandOS+
-	VERSION 2.0
+	VERSION 3.0
 	LANGUAGES C ASM
 )
 
