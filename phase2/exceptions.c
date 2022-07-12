@@ -113,14 +113,13 @@ static void _doIO() {
     PARAMETER1(memaddr *, command_address);
     PARAMETER2(int, command_value);
 
-    dtpreg_t *dev_reg = (dtpreg_t *)((memaddr)command_address - 0x4);
-    dev_reg->command = command_value;
+    *command_address = command_value;
     
     softblocked_count++;
     int *dev_semaphore = getIODeviceSemaphore((memaddr)command_address);
     P(dev_semaphore);
 
-    SYSTEMCALL_RETURN(dev_reg->status);
+    // Valore di ritorno gestito dall'interrupt
 }
 
 /**

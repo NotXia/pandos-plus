@@ -6,7 +6,6 @@
 #include <umps3/umps/libumps.h>
 #include <umps3/umps/arch.h>
 #include <umps3/umps/cp0.h>
-#include <klog.h>
 
 #define PROCESSOR_STATE(supp_struct)            (supp_struct->sup_exceptState[GENERALEXCEPT])
 #define SYSTEMCALL_CODE(supp_struct)            ((int)PROCESSOR_STATE(supp_struct).reg_a0)
@@ -15,11 +14,6 @@
 #define PARAMETER3(type, name, supp_struct)     type name = (type)PROCESSOR_STATE(supp_struct).reg_a3
 #define SYSTEMCALL_RETURN(ret, supp_struct)     PROCESSOR_STATE(supp_struct).reg_v0 = ret
 #define DEVICE_OF(asid)                         (asid - 1)
-
-#define DEV_READY               1
-#define TERMINAL_STATUS(status) (status & 0b11111111)
-#define CHAR_RECEIVED           5
-#define CHAR_TRANSMITTED        5
 
 static semaphore_t printer_sem[8];
 static semaphore_t terminal_sem[8];
@@ -91,9 +85,9 @@ static void _writeTerminal(int asid, support_t *support_structure) {
     if (length < 0 || length > 128 || (memaddr)string < KUSEG) { _terminate(); }
 
     P(&terminal_sem[DEVICE_OF(asid)], asid);
-    for (int i = 0; i<length; i++) {
+    for (int i=0; i<length; i++) {
         int status = SYSCALL(DOIO, (memaddr)&dev_reg->transm_command, (TERMINALWRITE + (*string << 8)), 0);
-        if (TERMINAL_STATUS(status) != CHAR_TRANSMITTED) { SYSTEMCALL_RETURN(-status, support_structure); }
+        if (TERMINAL_STATUS(status) != CHAR_TRANSMITTED) { SYSTEMCALL_RETURN(-status, support_structure); break; }
         sent++;
         string++;
     }
@@ -107,7 +101,7 @@ static void _writeTerminal(int asid, support_t *support_structure) {
  * @param asid ASID del processo.
 */
 static void _readTerminal(int asid, support_t *support_structure) {
-    PARAMETER1(int*, buffer, support_structure);
+    PARAMETER1(char*, buffer, support_structure);
     termreg_t *dev_reg = (termreg_t *)DEV_REG_ADDR(7, DEVICE_OF(asid));
     int received = 0;
     char read;
@@ -116,12 +110,14 @@ static void _readTerminal(int asid, support_t *support_structure) {
     
     P(&terminal_sem[DEVICE_OF(asid)], asid);
     while (1) {
-        int status = SYSCALL(DOIO, (memaddr)&dev_reg->recv_command, TERMINALREAD, 0);
-        if (TERMINAL_STATUS(status) != CHAR_RECEIVED) { SYSTEMCALL_RETURN(-status, support_structure); }
+        int status = SYSCALL(DOIO, (memaddr)&dev_reg->recv_command, TERMINALREAD, 0);      
+        if (TERMINAL_STATUS(status) != CHAR_RECEIVED) { SYSTEMCALL_RETURN(-status, support_structure); break; }
+      
         read = status >> 8;
-        if (read == '\n') { break; }
         buffer[received] = read;
         received++;
+        
+        if (read == '\n') { break; }
     }
     V(&terminal_sem[DEVICE_OF(asid)]);
 

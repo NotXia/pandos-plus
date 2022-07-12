@@ -8,7 +8,6 @@
 #include <umps3/umps/libumps.h>
 #include <umps3/umps/types.h>
 #include <umps3/umps/arch.h>
-#include <klog.h>
 
 #define IS_FREE_FRAME(frame)        (frame->sw_asid == NOPROC)
 #define FRAME_ADDRESS(index)        (FRAMEPOOLSTART + (index)*PAGESIZE)
@@ -92,8 +91,8 @@ static void _writePageToFlash(int asid, int page_num, memaddr frame_address) {
     flash_dev_reg->data0 = frame_address;
     int command = (page_num << 8) + FLASHWRITE;
     
-    int res = SYSCALL(DOIO, (memaddr)&flash_dev_reg->command, command, 0);
-    if (res == FLASH_WRITE_ERROR) {
+    int status = SYSCALL(DOIO, (memaddr)&flash_dev_reg->command, command, 0);
+    if (status == FLASH_WRITE_ERROR) {
         trapExceptionHandler();
     }
 }
@@ -110,9 +109,8 @@ static void _readPageFromFlash(int asid, int page_num, memaddr frame_address) {
     flash_dev_reg->data0 = frame_address;
     int command = (page_num << 8) + FLASHREAD;
 
-    int res = SYSCALL(DOIO, (memaddr)&flash_dev_reg->command, command, 0);
-
-    if (res == FLASH_READ_ERROR) {
+    int status = SYSCALL(DOIO, (memaddr)&flash_dev_reg->command, command, 0);
+    if (status == FLASH_READ_ERROR) {
         trapExceptionHandler();
     }
 }
