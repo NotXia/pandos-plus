@@ -3,7 +3,7 @@
         "core-file": "kernel.core.umps",
         "load-core-file": true
     },
-    "bootstrap-rom": "/usr/local/share/umps3/coreboot.rom.umps",
+    "bootstrap-rom": "/usr/share/umps3/coreboot.rom.umps",
     "clock-rate": 1,
     "devices": {
         "flash0": {
@@ -103,7 +103,7 @@
             "file": "term7.umps"
         }
     },
-    "execution-rom": "/usr/local/share/umps3/exec.rom.umps",
+    "execution-rom": "/usr/share/umps3/exec.rom.umps",
     "num-processors": 1,
     "num-ram-frames": 128,
     "symbol-table": {

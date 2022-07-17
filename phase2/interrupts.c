@@ -65,8 +65,8 @@ static unsigned int _getDeviceBitmap(int line) {
  * @param status Puntatore al campo status del device.
  * @param command Puntatore al campo command del device.
 */
-static void _deviceInterruptReturn(unsigned int *status, unsigned int *command) {
-    unsigned int status_code = *status;
+static void _deviceInterruptReturn(unsigned int status, unsigned int *command) {
+    unsigned int status_code = status;
     *command = ACK;
 
     pcb_t *ready_proc = semV(getIODeviceSemaphore((memaddr)command), NULL, NULL);
@@ -83,7 +83,7 @@ static void _deviceInterruptReturn(unsigned int *status, unsigned int *command) 
 */
 static void _nonTerminalHandler(int line, int device_number) {
     dtpreg_t *device_register = (dtpreg_t *)DEV_REG_ADDR(line, device_number);
-    _deviceInterruptReturn(&device_register->status, &device_register->command);
+    _deviceInterruptReturn(device_register->status, &device_register->command);
 }
 
 /**
@@ -93,12 +93,14 @@ static void _nonTerminalHandler(int line, int device_number) {
 static void _terminalHandler(int device_number) {
     termreg_t *device_register = (termreg_t *)DEV_REG_ADDR(IL_TERMINAL, device_number);
 
-    // Status 5 = Character Received / Character Transmitted
-    if (device_register->recv_status == 5) { // Ricezione
-        _deviceInterruptReturn(&device_register->recv_status, &device_register->recv_command);
+    if (TERMINAL_STATUS(device_register->recv_status) == CHAR_RECEIVED) { // Ricezione
+        _deviceInterruptReturn(device_register->recv_status, &device_register->recv_command);
     }
-    else {  // Trasmissione
-        _deviceInterruptReturn(&device_register->transm_status, &device_register->transm_command);
+    else if (TERMINAL_STATUS(device_register->transm_status) == CHAR_TRANSMITTED) {  // Trasmissione
+        _deviceInterruptReturn(device_register->transm_status, &device_register->transm_command);
+    }
+    else {
+        PANIC();
     }
 }
 
@@ -159,5 +161,8 @@ void interruptHandler() {
     }
     else if ((ip & TERMINTERRUPT) != 0) {     // Line 7
         _deviceHandler(IL_TERMINAL);
+    }
+    else {
+        _interruptHandlerExit();
     }
 }

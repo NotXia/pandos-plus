@@ -188,4 +188,9 @@
 #define FLASH_READ_ERROR 4
 #define FLASH_WRITE_ERROR 5
 
+#define DEV_READY               1
+#define TERMINAL_STATUS(status) (status & 0b11111111)
+#define CHAR_RECEIVED           5
+#define CHAR_TRANSMITTED        5
+
 #endif
