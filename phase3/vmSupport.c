@@ -9,7 +9,7 @@
 #include <umps3/umps/types.h>
 #include <umps3/umps/arch.h>
 
-#define IS_FREE_FRAME(frame)        (frame->sw_asid == NOPROC)
+#define IS_FREE_FRAME(frame)        ((frame)->sw_asid == NOPROC)
 #define FRAME_ADDRESS(index)        (FRAMEPOOLSTART + (index)*PAGESIZE)
 #define FRAME_NUMBER(frame_addr)    (frame_addr - FRAMEPOOLSTART) / PAGESIZE
 #define DISABLE_INTERRUPTS          setSTATUS(getSTATUS() & ~IECON)
@@ -69,11 +69,23 @@ void TLBRefillHandler() {
  * @returns Un frame utilizzabile.
 */
 static swap_t* _getFrame(memaddr *frame_address) {
-    swap_t *to_swap_frame = &swap_pool_table[swap_pool_index];
-    memaddr to_swap_frame_address = FRAME_ADDRESS(swap_pool_index);
+    swap_t *to_swap_frame = NULL;
+    memaddr to_swap_frame_address;
 
-    swap_pool_index++;
-    if (swap_pool_index >= POOLSIZE) { swap_pool_index = 0; }
+    // Muove il contatore ad un frame libero se esiste (altrimenti fa un giro completo e torna alla posizione originale)
+    for (int i=0; i<POOLSIZE; i++) {
+        if (IS_FREE_FRAME(&swap_pool_table[swap_pool_index])) {
+            break;
+        }
+        swap_pool_index = (swap_pool_index+1) % POOLSIZE;
+    }
+
+    // Estrazione frame
+    to_swap_frame = &swap_pool_table[swap_pool_index];
+    to_swap_frame_address = FRAME_ADDRESS(swap_pool_index);
+
+    // Incremento del contatore (prossimo possibile frame da selezionare)
+    swap_pool_index = (swap_pool_index+1) % POOLSIZE;
 
     *frame_address = to_swap_frame_address;
     return to_swap_frame;
