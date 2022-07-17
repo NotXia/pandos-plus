@@ -7,4 +7,6 @@ void TLBExceptionHandler();
 
 void releaseSwapPoolSem();
 
+void freeFrame(int asid);
+
 #endif

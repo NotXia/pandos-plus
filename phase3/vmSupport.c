@@ -210,9 +210,30 @@ void TLBExceptionHandler() {
     }
 }
 
+/**
+ * @brief 
+*/
 void releaseSwapPoolSem() {
     support_t *support_structure = (support_t *)SYSCALL(GETSUPPORTPTR, 0, 0, 0);
     if (swap_pool_sem.user_asid == support_structure->sup_asid) {
         V(&swap_pool_sem);
     }
+}
+
+/**
+ * @brief Libera i frame associati ad un ASID.
+ * @param asid ASID del processo.
+*/
+void freeFrame(int asid) {
+    P(&swap_pool_sem, asid);
+
+    for (int i=0; i<POOLSIZE; i++) {
+        if (swap_pool_table[i].sw_asid == asid) {
+            swap_pool_table[i].sw_asid = NOPROC;
+            swap_pool_table[i].sw_pageNo = 0;
+            swap_pool_table[i].sw_pte = NULL;
+        }
+    }    
+
+    V(&swap_pool_sem);
 }
