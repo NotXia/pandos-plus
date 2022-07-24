@@ -4,8 +4,10 @@
 #include <sysSupport.h>
 #include <vmSupport.h>
 
-static state_t state[8];
-static support_t support_arr[8];
+
+static support_t support_arr[UPROCMAX];
+static struct list_head free_support;
+static int master_sem;
 
 /**
  * @brief Inizializzazione stato del processore di un processo.
@@ -44,27 +46,75 @@ static void _createSupportStructure(int asid, support_t *support) {
     support->sup_privatePgTbl[31].pte_entryLO = 0 | ENTRYLO_DIRTY;
 }
 
+
+/**
+ * @brief Alloca una support structure.
+ * @return Support structure pronta all'uso.
+ */
+static support_t *_allocate() {
+    // Rimozione in testa
+    support_t *support_structure = container_of(free_support.next, support_t, p_list);
+    list_del(free_support.next);
+
+    return support_structure;
+}
+
+/**
+ * @brief Dealloca una support structure.
+ * @param support_structure Puntatore alla support structure da deallocare.
+ */
+static void _deallocate(support_t *support_structure) {
+    list_add(&support_structure->p_list, &free_support);
+}
+
+/**
+ * @brief Inizializza lo stack dei support structure.
+ * @param stack Puntatore alla testa dello stack.
+ */
+static void _initFreeSupportStack() {
+    INIT_LIST_HEAD(&free_support);
+
+    for (int i=0; i<UPROCMAX; i++) {
+        _deallocate(&support_arr[i]);
+    }
+}
+
 /**
  * @brief Inizializzazione processo.
+ * @param asid ASID del processo da inizializzare.
  */
-void _startProcess(int asid) {
-    _createProcessorState(asid, &state[asid-1]);
-    _createSupportStructure(asid, &support_arr[asid-1]);
-    SYSCALL(CREATEPROCESS, (memaddr)&state[asid-1], PROCESS_PRIO_LOW, (memaddr)&support_arr[asid-1]);
+static void _startProcess(int asid) {
+    state_t state;
+    support_t *support_structure = _allocate();
+    
+    _createProcessorState(asid, &state);
+    _createSupportStructure(asid, support_structure);
+    SYSCALL(CREATEPROCESS, (memaddr)&state, PROCESS_PRIO_LOW, (memaddr)support_structure);
+}
+
+/**
+ * @brief Gestisce la terminazione di un processo.
+ */
+void signalProcessTermination() {
+    _deallocate( (support_t *)SYSCALL(GETSUPPORTPTR, 0, 0, 0) );
+    SYSCALL(PASSEREN, (memaddr)&master_sem, 0, 0);
 }
 
 /**
  * @brief Inizializzazione del sistema.
  */
 void test() {
-    int end_sem = 0;
+    master_sem = 1;
 
     initSwapStructs();
     initSysStructs();
+    _initFreeSupportStack();
 
-    for (int i=1; i<=8; i++) {
+    for (int i=1; i<=UPROCMAX; i++) {
         _startProcess(i);
     }
 
-    SYSCALL(PASSEREN, (memaddr)&end_sem, 0, 0);
+    for (int i=0; i<UPROCMAX; i++) {
+        SYSCALL(VERHOGEN, (memaddr)&master_sem, 0, 0);
+    }
 }

@@ -3,6 +3,7 @@
 #include <initial.h> // TODO Togliere in futuro
 #include <utilities.h>
 #include <vmSupport.h>
+#include <initProc.h>
 #include <umps3/umps/libumps.h>
 #include <umps3/umps/arch.h>
 #include <umps3/umps/cp0.h>
@@ -44,6 +45,7 @@ static void _getTOD(support_t *support_structure) {
 */
 static void _terminate(support_t *support_structure) {
     freeFrame(support_structure->sup_asid);
+    signalProcessTermination();
     SYSCALL(TERMPROCESS, 0, 0, 0);
 }
 

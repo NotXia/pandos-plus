@@ -40,6 +40,8 @@ typedef struct support_t {
     pteEntry_t sup_privatePgTbl[USERPGTBLSIZE]; /* user page table				    */
     int sup_stackTLB[500];                      /* Stack per le TLB exception       */
     int sup_stackGen[500];                      /* Stack per le eccezioni generali  */
+
+    struct list_head p_list;
 } support_t;
 
 
