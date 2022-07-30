@@ -1,5 +1,4 @@
 #include "vmSupport.h"
-#include <pandos_types.h>
 #include <listx.h>
 #include <initial.h>
 #include <utilities.h>
@@ -248,4 +247,30 @@ void freeFrame(int asid) {
     }    
 
     V(&swap_pool_sem);
+}
+
+/**
+ * @brief Inizializza la tabella delle pagine.
+ * @param support Puntatore alla struttura di supporto.
+ * @param tmp_frame Indirizzo di un frame di appoggio.
+*/
+void initPageTable(support_t *support, memaddr tmp_frame) {
+    // // Estrazione header
+    _readPageFromFlash(support->sup_asid, 0, tmp_frame);
+    int *aout_header = (int *)tmp_frame;
+
+    // // Calcolo numero pagine .text
+    int text_file_size = aout_header[5];
+    int num_text_page = text_file_size / PAGESIZE;
+    // int num_text_page = 1;
+
+    // Inizializzazione tabella delle pagine
+    for (int i=0; i<31; i++) {
+        support->sup_privatePgTbl[i].pte_entryHI = ((0x80000+i) << ENTRYHI_VPN_BIT) + (support->sup_asid << ENTRYHI_ASID_BIT);
+        if (i < num_text_page) { support->sup_privatePgTbl[i].pte_entryLO = 0; }
+        else { support->sup_privatePgTbl[i].pte_entryLO = 0 | ENTRYLO_DIRTY; }
+    }
+    // Pagina per lo stack
+    support->sup_privatePgTbl[31].pte_entryHI = ((0xBFFFF) << ENTRYHI_VPN_BIT) + (support->sup_asid << ENTRYHI_ASID_BIT);
+    support->sup_privatePgTbl[31].pte_entryLO = 0 | ENTRYLO_DIRTY;
 }

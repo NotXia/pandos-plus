@@ -44,21 +44,22 @@ static memaddr _getStackFrame() {
 static void _createSupportStructure(int asid, support_t *support) {
     support->sup_asid = asid;
 
+    
     // Inizializzazione gestori eccezioni
+    memaddr page_fault_stack = _getStackFrame();
+    memaddr general_stack = _getStackFrame();
     support->sup_exceptContext[PGFAULTEXCEPT].pc = (memaddr)TLBExceptionHandler;
     support->sup_exceptContext[PGFAULTEXCEPT].status = ALLOFF | (IMON | IEPON) | TEBITON; // Interrupt abilitati + PLT abilitato + Kernel mode
-    support->sup_exceptContext[PGFAULTEXCEPT].stackPtr = _getStackFrame();
+    support->sup_exceptContext[PGFAULTEXCEPT].stackPtr = page_fault_stack;
     support->sup_exceptContext[GENERALEXCEPT].pc = (memaddr)generalExceptionHandler;
     support->sup_exceptContext[GENERALEXCEPT].status = ALLOFF | (IMON | IEPON) | TEBITON; // Interrupt abilitati + PLT abilitato + Kernel mode
-    support->sup_exceptContext[GENERALEXCEPT].stackPtr = _getStackFrame();
+    support->sup_exceptContext[GENERALEXCEPT].stackPtr = general_stack;
 
-    // Inizializzazione tabella delle pagine
-    for (int i=0; i<31; i++) {
-        support->sup_privatePgTbl[i].pte_entryHI = ((0x80000+i) << ENTRYHI_VPN_BIT) + (asid << ENTRYHI_ASID_BIT);
-        support->sup_privatePgTbl[i].pte_entryLO = 0 | ENTRYLO_DIRTY;
-    }
-    support->sup_privatePgTbl[31].pte_entryHI = ((0xBFFFF) << ENTRYHI_VPN_BIT) + (asid << ENTRYHI_ASID_BIT);
-    support->sup_privatePgTbl[31].pte_entryLO = 0 | ENTRYLO_DIRTY;
+    /*
+        Inizializzazione della tabella delle pagine.
+        Dal momento che il processo non è ancora stato avviato, si può usare come frame temporaneo uno di quelli assegnati per la stack.
+    */
+    initPageTable(support, general_stack);
 }
 
 
