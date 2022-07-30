@@ -97,14 +97,14 @@ static void _startProcess(int asid) {
  */
 void signalProcessTermination() {
     _deallocate( (support_t *)SYSCALL(GETSUPPORTPTR, 0, 0, 0) );
-    SYSCALL(PASSEREN, (memaddr)&master_sem, 0, 0);
+    SYSCALL(VERHOGEN, (memaddr)&master_sem, 0, 0);
 }
 
 /**
  * @brief Inizializzazione del sistema.
  */
 void test() {
-    master_sem = 1;
+    master_sem = 0;
 
     initSwapStructs();
     initSysStructs();
@@ -115,6 +115,6 @@ void test() {
     }
 
     for (int i=0; i<UPROCMAX; i++) {
-        SYSCALL(VERHOGEN, (memaddr)&master_sem, 0, 0);
+        SYSCALL(PASSEREN, (memaddr)&master_sem, 0, 0);
     }
 }
