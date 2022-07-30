@@ -22,6 +22,21 @@ static void _createProcessorState(int asid, state_t *state) {
 }
 
 /**
+ * @brief Restituisce l'indirizzo di una pagina libera che può essere usata come stack,
+ * @return L'indirizzo della pagina adibita a stack.
+*/
+static memaddr _getStackFrame() {
+    static int curr_offset = 0;
+    memaddr ram_top;
+    RAMTOP(ram_top);
+
+    memaddr frame_address = (ram_top - PAGESIZE) - (curr_offset*PAGESIZE);
+    curr_offset++;
+
+    return frame_address;
+}
+
+/**
  * @brief Inizializzazione support structure di un processo.
  * @param asid ASID del processo.
  * @return Support structure per il processo.
@@ -32,10 +47,10 @@ static void _createSupportStructure(int asid, support_t *support) {
     // Inizializzazione gestori eccezioni
     support->sup_exceptContext[PGFAULTEXCEPT].pc = (memaddr)TLBExceptionHandler;
     support->sup_exceptContext[PGFAULTEXCEPT].status = ALLOFF | (IMON | IEPON) | TEBITON; // Interrupt abilitati + PLT abilitato + Kernel mode
-    support->sup_exceptContext[PGFAULTEXCEPT].stackPtr = (memaddr)&support->sup_stackTLB[499];
+    support->sup_exceptContext[PGFAULTEXCEPT].stackPtr = _getStackFrame();
     support->sup_exceptContext[GENERALEXCEPT].pc = (memaddr)generalExceptionHandler;
     support->sup_exceptContext[GENERALEXCEPT].status = ALLOFF | (IMON | IEPON) | TEBITON; // Interrupt abilitati + PLT abilitato + Kernel mode
-    support->sup_exceptContext[GENERALEXCEPT].stackPtr = (memaddr)&support->sup_stackGen[499];
+    support->sup_exceptContext[GENERALEXCEPT].stackPtr = _getStackFrame();
 
     // Inizializzazione tabella delle pagine
     for (int i=0; i<31; i++) {
