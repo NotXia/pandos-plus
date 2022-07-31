@@ -3,4 +3,6 @@
 
 void test();
 
+void signalProcessTermination();
+
 #endif

@@ -3,6 +3,7 @@
 #include <initial.h> // TODO Togliere in futuro
 #include <utilities.h>
 #include <vmSupport.h>
+#include <initProc.h>
 #include <umps3/umps/libumps.h>
 #include <umps3/umps/arch.h>
 #include <umps3/umps/cp0.h>
@@ -42,7 +43,9 @@ static void _getTOD(support_t *support_structure) {
 /**
  * @brief System call per terminare un processo.
 */
-static void _terminate() {
+static void _terminate(support_t *support_structure) {
+    freeFrame(support_structure->sup_asid);
+    signalProcessTermination();
     SYSCALL(TERMPROCESS, 0, 0, 0);
 }
 
@@ -57,7 +60,7 @@ static void _writePrinter(int asid, support_t *support_structure) {
     dtpreg_t *dev_reg = (dtpreg_t *)DEV_REG_ADDR(6, DEVICE_OF(asid));
     int sent = 0;
 
-    if (length < 0 || length > 128 || (memaddr)string < KUSEG) { _terminate(); }
+    if (length < 0 || length > 128 || (memaddr)string < KUSEG) { _terminate(support_structure); }
 
     P(&printer_sem[DEVICE_OF(asid)], asid);
     for (int i=0; i<length; i++) {
@@ -82,7 +85,7 @@ static void _writeTerminal(int asid, support_t *support_structure) {
     termreg_t *dev_reg = (termreg_t *)DEV_REG_ADDR(7, DEVICE_OF(asid));
     int sent = 0;
 
-    if (length < 0 || length > 128 || (memaddr)string < KUSEG) { _terminate(); }
+    if (length < 0 || length > 128 || (memaddr)string < KUSEG) { _terminate(support_structure); }
 
     P(&terminal_sem[DEVICE_OF(asid)], asid);
     for (int i=0; i<length; i++) {
@@ -106,7 +109,7 @@ static void _readTerminal(int asid, support_t *support_structure) {
     int received = 0;
     char read;
 
-    if ((memaddr)buffer < KUSEG) { _terminate(); }
+    if ((memaddr)buffer < KUSEG) { _terminate(support_structure); }
     
     P(&terminal_sem[DEVICE_OF(asid)], asid);
     while (1) {
@@ -171,5 +174,5 @@ void trapExceptionHandler() {
     }
     releaseSwapPoolSem();
 
-    _terminate();
+    _terminate(support_structure);
 }

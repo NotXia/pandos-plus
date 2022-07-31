@@ -1,5 +1,4 @@
 #include "vmSupport.h"
-#include <pandos_types.h>
 #include <listx.h>
 #include <initial.h>
 #include <utilities.h>
@@ -9,9 +8,13 @@
 #include <umps3/umps/types.h>
 #include <umps3/umps/arch.h>
 
-#define IS_FREE_FRAME(frame)        (frame->sw_asid == NOPROC)
-#define FRAME_ADDRESS(index)        (FRAMEPOOLSTART + (index)*PAGESIZE)
-#define FRAME_NUMBER(frame_addr)    (frame_addr - FRAMEPOOLSTART) / PAGESIZE
+#define DATA_START_ADDR_OFFSET      0x18
+#define DATA_FILE_SIZE_OFFSET       0x24
+#define FRAME_POOL_START            *((int *)(KERNELSTACK+DATA_START_ADDR_OFFSET)) + *((int *)(KERNELSTACK+DATA_FILE_SIZE_OFFSET))
+
+#define IS_FREE_FRAME(frame)        ((frame)->sw_asid == NOPROC)
+#define FRAME_ADDRESS(index)        (FRAME_POOL_START + (index)*PAGESIZE)
+#define FRAME_NUMBER(frame_addr)    (frame_addr - FRAME_POOL_START) / PAGESIZE
 #define DISABLE_INTERRUPTS          setSTATUS(getSTATUS() & ~IECON)
 #define ENABLE_INTERRUPTS           setSTATUS(getSTATUS() | IECON)
 
@@ -69,11 +72,23 @@ void TLBRefillHandler() {
  * @returns Un frame utilizzabile.
 */
 static swap_t* _getFrame(memaddr *frame_address) {
-    swap_t *to_swap_frame = &swap_pool_table[swap_pool_index];
-    memaddr to_swap_frame_address = FRAME_ADDRESS(swap_pool_index);
+    swap_t *to_swap_frame = NULL;
+    memaddr to_swap_frame_address;
 
-    swap_pool_index++;
-    if (swap_pool_index >= POOLSIZE) { swap_pool_index = 0; }
+    // Muove il contatore ad un frame libero se esiste (altrimenti fa un giro completo e torna alla posizione originale)
+    for (int i=0; i<POOLSIZE; i++) {
+        if (IS_FREE_FRAME(&swap_pool_table[swap_pool_index])) {
+            break;
+        }
+        swap_pool_index = (swap_pool_index+1) % POOLSIZE;
+    }
+
+    // Estrazione frame
+    to_swap_frame = &swap_pool_table[swap_pool_index];
+    to_swap_frame_address = FRAME_ADDRESS(swap_pool_index);
+
+    // Incremento del contatore (prossimo possibile frame da selezionare)
+    swap_pool_index = (swap_pool_index+1) % POOLSIZE;
 
     *frame_address = to_swap_frame_address;
     return to_swap_frame;
@@ -115,6 +130,19 @@ static void _readPageFromFlash(int asid, int page_num, memaddr frame_address) {
     }
 }
 
+static void _updateTLB(pteEntry_t *entry) {
+    // Ricerca frame nel TLB
+    setENTRYHI(entry->pte_entryHI);
+    TLBP();
+
+    // Aggiornamento TLB
+    if ((getINDEX() & 0x80000000) == 0) {
+        setENTRYHI(entry->pte_entryHI);
+        setENTRYLO(entry->pte_entryLO);
+        TLBWI();
+    }
+}
+
 /**
  * @brief Gestisce l'invalidazione di una pagina.
  * @param frame             Puntatore al descrittore del frame che contiene la pagina
@@ -124,7 +152,7 @@ static void _storePage(swap_t *frame, memaddr frame_address) {
     DISABLE_INTERRUPTS;
     // Invalidazione della pagina
     frame->sw_pte->pte_entryLO = frame->sw_pte->pte_entryLO & ~VALIDON;
-    TLBCLR();
+    _updateTLB(frame->sw_pte);
     ENABLE_INTERRUPTS;
 
     // Salvataggio della vecchia pagina nel flash drive del processo
@@ -152,8 +180,7 @@ static void _loadPage(pteEntry_t *pt_entry, swap_t *frame, memaddr frame_address
     // Aggiornamento della page table
     DISABLE_INTERRUPTS;
     pt_entry->pte_entryLO = (pt_entry->pte_entryLO & ~ENTRYLO_PFN_MASK) | frame_address | VALIDON;
-
-    TLBCLR(); // TODO Ottimizzare
+    _updateTLB(pt_entry);
     ENABLE_INTERRUPTS;
 }
 
@@ -202,9 +229,55 @@ void TLBExceptionHandler() {
     }
 }
 
+/**
+ * @brief 
+*/
 void releaseSwapPoolSem() {
     support_t *support_structure = (support_t *)SYSCALL(GETSUPPORTPTR, 0, 0, 0);
     if (swap_pool_sem.user_asid == support_structure->sup_asid) {
         V(&swap_pool_sem);
     }
+}
+
+/**
+ * @brief Libera i frame associati ad un ASID.
+ * @param asid ASID del processo.
+*/
+void freeFrame(int asid) {
+    P(&swap_pool_sem, asid);
+
+    for (int i=0; i<POOLSIZE; i++) {
+        if (swap_pool_table[i].sw_asid == asid) {
+            swap_pool_table[i].sw_asid = NOPROC;
+            swap_pool_table[i].sw_pageNo = 0;
+            swap_pool_table[i].sw_pte = NULL;
+        }
+    }    
+
+    V(&swap_pool_sem);
+}
+
+/**
+ * @brief Inizializza la tabella delle pagine.
+ * @param support Puntatore alla struttura di supporto.
+ * @param tmp_frame Indirizzo di un frame di appoggio.
+*/
+void initPageTable(int asid, pteEntry_t *page_table, memaddr tmp_frame) {
+    // Estrazione header
+    _readPageFromFlash(asid, 0, tmp_frame);
+    int *aout_header = (int *)tmp_frame;
+
+    // Calcolo numero pagine .text
+    int text_file_size = aout_header[5];
+    int num_text_file = text_file_size / PAGESIZE;
+
+    // Inizializzazione tabella delle pagine
+    for (int i=0; i<31; i++) {
+        page_table[i].pte_entryHI = ((0x80000+i) << ENTRYHI_VPN_BIT) + (asid << ENTRYHI_ASID_BIT);
+        if (i < num_text_file) { page_table[i].pte_entryLO = 0; }
+        else { page_table[i].pte_entryLO = 0 | ENTRYLO_DIRTY; }
+    }
+    // Pagina per lo stack
+    page_table[31].pte_entryHI = ((0xBFFFF) << ENTRYHI_VPN_BIT) + (asid << ENTRYHI_ASID_BIT);
+    page_table[31].pte_entryLO = 0 | ENTRYLO_DIRTY;
 }

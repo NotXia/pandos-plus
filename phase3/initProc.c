@@ -4,8 +4,10 @@
 #include <sysSupport.h>
 #include <vmSupport.h>
 
-static state_t state[8];
-static support_t support_arr[8];
+
+static support_t support_arr[UPROCMAX];
+static struct list_head free_support;
+static int master_sem;
 
 /**
  * @brief Inizializzazione stato del processore di un processo.
@@ -20,6 +22,21 @@ static void _createProcessorState(int asid, state_t *state) {
 }
 
 /**
+ * @brief Restituisce l'indirizzo di una pagina libera che può essere usata come stack,
+ * @return L'indirizzo della pagina adibita a stack.
+*/
+static memaddr _getStackFrame() {
+    static int curr_offset = 0;
+    memaddr ram_top;
+    RAMTOP(ram_top);
+
+    memaddr frame_address = (ram_top-PAGESIZE) - (curr_offset*PAGESIZE);
+    curr_offset++;
+
+    return frame_address;
+}
+
+/**
  * @brief Inizializzazione support structure di un processo.
  * @param asid ASID del processo.
  * @return Support structure per il processo.
@@ -28,43 +45,97 @@ static void _createSupportStructure(int asid, support_t *support) {
     support->sup_asid = asid;
 
     // Inizializzazione gestori eccezioni
+    memaddr page_fault_stack = _getStackFrame();
+    memaddr general_stack = _getStackFrame();
     support->sup_exceptContext[PGFAULTEXCEPT].pc = (memaddr)TLBExceptionHandler;
     support->sup_exceptContext[PGFAULTEXCEPT].status = ALLOFF | (IMON | IEPON) | TEBITON; // Interrupt abilitati + PLT abilitato + Kernel mode
-    support->sup_exceptContext[PGFAULTEXCEPT].stackPtr = (memaddr)&support->sup_stackTLB[499];
+    support->sup_exceptContext[PGFAULTEXCEPT].stackPtr = page_fault_stack;
     support->sup_exceptContext[GENERALEXCEPT].pc = (memaddr)generalExceptionHandler;
     support->sup_exceptContext[GENERALEXCEPT].status = ALLOFF | (IMON | IEPON) | TEBITON; // Interrupt abilitati + PLT abilitato + Kernel mode
-    support->sup_exceptContext[GENERALEXCEPT].stackPtr = (memaddr)&support->sup_stackGen[499];
+    support->sup_exceptContext[GENERALEXCEPT].stackPtr = general_stack;
 
-    // Inizializzazione tabella delle pagine
-    for (int i=0; i<31; i++) {
-        support->sup_privatePgTbl[i].pte_entryHI = ((0x80000+i) << ENTRYHI_VPN_BIT) + (asid << ENTRYHI_ASID_BIT);
-        support->sup_privatePgTbl[i].pte_entryLO = 0 | ENTRYLO_DIRTY;
+    /*
+        Inizializzazione della tabella delle pagine.
+        Dal momento che il processo non è ancora stato avviato, si può usare come frame temporaneo uno di quelli assegnati per lo stack.
+        Poiché i frame vengono assegnati nell'ordine PGFAULTEXCEPT -> GENERALEXCEPT, il frame temporaneo utilizzato è quello di PGFAULTEXCEPT. 
+        Ma dato che gli indirizzi dello stack crescono in senso inverso rispetto alla memoria, si passa come indirizzo iniziale quello di GENERALEXCEPT.
+    */
+    initPageTable(asid, support->sup_privatePgTbl, general_stack);
+}
+
+
+/**
+ * @brief Alloca una support structure.
+ * @return Support structure pronta all'uso.
+ */
+static support_t *_allocate() {
+    // Rimozione in testa
+    support_t *support_structure = container_of(free_support.next, support_t, p_list);
+    list_del(free_support.next);
+
+    return support_structure;
+}
+
+/**
+ * @brief Dealloca una support structure.
+ * @param support_structure Puntatore alla support structure da deallocare.
+ */
+static void _deallocate(support_t *support_structure) {
+    list_add(&support_structure->p_list, &free_support);
+}
+
+/**
+ * @brief Inizializza lo stack dei support structure.
+ * @param stack Puntatore alla testa dello stack.
+ */
+static void _initFreeSupportStack() {
+    INIT_LIST_HEAD(&free_support);
+
+    for (int i=0; i<UPROCMAX; i++) {
+        _deallocate(&support_arr[i]);
     }
-    support->sup_privatePgTbl[31].pte_entryHI = ((0xBFFFF) << ENTRYHI_VPN_BIT) + (asid << ENTRYHI_ASID_BIT);
-    support->sup_privatePgTbl[31].pte_entryLO = 0 | ENTRYLO_DIRTY;
 }
 
 /**
  * @brief Inizializzazione processo.
+ * @param asid ASID del processo da inizializzare.
  */
-void _startProcess(int asid) {
-    _createProcessorState(asid, &state[asid-1]);
-    _createSupportStructure(asid, &support_arr[asid-1]);
-    SYSCALL(CREATEPROCESS, (memaddr)&state[asid-1], PROCESS_PRIO_LOW, (memaddr)&support_arr[asid-1]);
+static void _startProcess(int asid) {
+    state_t state;
+    support_t *support_structure = _allocate();
+    
+    _createProcessorState(asid, &state);
+    _createSupportStructure(asid, support_structure);
+    SYSCALL(CREATEPROCESS, (memaddr)&state, PROCESS_PRIO_LOW, (memaddr)support_structure);
+}
+
+/**
+ * @brief Gestisce la terminazione di un processo.
+ */
+void signalProcessTermination() {
+    _deallocate( (support_t *)SYSCALL(GETSUPPORTPTR, 0, 0, 0) );
+    SYSCALL(VERHOGEN, (memaddr)&master_sem, 0, 0);
 }
 
 /**
  * @brief Inizializzazione del sistema.
  */
 void test() {
-    int end_sem = 0;
+    master_sem = 0;
 
     initSwapStructs();
     initSysStructs();
+    _initFreeSupportStack();
 
-    for (int i=1; i<=8; i++) {
+    // Initializza gli uproc
+    for (int i=1; i<=UPROCMAX; i++) {
         _startProcess(i);
     }
 
-    SYSCALL(PASSEREN, (memaddr)&end_sem, 0, 0);
+    // Attende l'attesa di tutti gli uproc
+    for (int i=0; i<UPROCMAX; i++) {
+        SYSCALL(PASSEREN, (memaddr)&master_sem, 0, 0);
+    }
+
+    SYSCALL(TERMPROCESS, 0, 0, 0);
 }
