@@ -30,7 +30,7 @@ static memaddr _getStackFrame() {
     memaddr ram_top;
     RAMTOP(ram_top);
 
-    memaddr frame_address = (ram_top - PAGESIZE) - (curr_offset*PAGESIZE);
+    memaddr frame_address = (ram_top-PAGESIZE) - (curr_offset*PAGESIZE);
     curr_offset++;
 
     return frame_address;
@@ -44,7 +44,6 @@ static memaddr _getStackFrame() {
 static void _createSupportStructure(int asid, support_t *support) {
     support->sup_asid = asid;
 
-    
     // Inizializzazione gestori eccezioni
     memaddr page_fault_stack = _getStackFrame();
     memaddr general_stack = _getStackFrame();
@@ -57,9 +56,11 @@ static void _createSupportStructure(int asid, support_t *support) {
 
     /*
         Inizializzazione della tabella delle pagine.
-        Dal momento che il processo non è ancora stato avviato, si può usare come frame temporaneo uno di quelli assegnati per la stack.
+        Dal momento che il processo non è ancora stato avviato, si può usare come frame temporaneo uno di quelli assegnati per lo stack.
+        Poiché i frame vengono assegnati nell'ordine PGFAULTEXCEPT -> GENERALEXCEPT, il frame temporaneo utilizzato è quello di PGFAULTEXCEPT. 
+        Ma dato che gli indirizzi dello stack crescono in senso inverso rispetto alla memoria, si passa come indirizzo iniziale quello di GENERALEXCEPT.
     */
-    initPageTable(support, general_stack);
+    initPageTable(asid, support->sup_privatePgTbl, general_stack);
 }
 
 
@@ -126,11 +127,15 @@ void test() {
     initSysStructs();
     _initFreeSupportStack();
 
+    // Initializza gli uproc
     for (int i=1; i<=UPROCMAX; i++) {
         _startProcess(i);
     }
 
+    // Attende l'attesa di tutti gli uproc
     for (int i=0; i<UPROCMAX; i++) {
         SYSCALL(PASSEREN, (memaddr)&master_sem, 0, 0);
     }
+
+    SYSCALL(TERMPROCESS, 0, 0, 0);
 }
