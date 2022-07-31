@@ -8,9 +8,13 @@
 #include <umps3/umps/types.h>
 #include <umps3/umps/arch.h>
 
+#define DATA_START_ADDR_OFFSET      0x18
+#define DATA_FILE_SIZE_OFFSET       0x24
+#define FRAME_POOL_START            *((int *)(KERNELSTACK+DATA_START_ADDR_OFFSET)) + *((int *)(KERNELSTACK+DATA_FILE_SIZE_OFFSET))
+
 #define IS_FREE_FRAME(frame)        ((frame)->sw_asid == NOPROC)
-#define FRAME_ADDRESS(index)        (FRAMEPOOLSTART + (index)*PAGESIZE)
-#define FRAME_NUMBER(frame_addr)    (frame_addr - FRAMEPOOLSTART) / PAGESIZE
+#define FRAME_ADDRESS(index)        (FRAME_POOL_START + (index)*PAGESIZE)
+#define FRAME_NUMBER(frame_addr)    (frame_addr - FRAME_POOL_START) / PAGESIZE
 #define DISABLE_INTERRUPTS          setSTATUS(getSTATUS() & ~IECON)
 #define ENABLE_INTERRUPTS           setSTATUS(getSTATUS() | IECON)
 
