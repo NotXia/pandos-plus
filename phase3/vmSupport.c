@@ -130,6 +130,19 @@ static void _readPageFromFlash(int asid, int page_num, memaddr frame_address) {
     }
 }
 
+static void _updateTLB(pteEntry_t *entry) {
+    // Ricerca frame nel TLB
+    setENTRYHI(entry->pte_entryHI);
+    TLBP();
+
+    // Aggiornamento TLB
+    if ((getINDEX() & 0x80000000) == 0) {
+        setENTRYHI(entry->pte_entryHI);
+        setENTRYLO(entry->pte_entryLO);
+        TLBWI();
+    }
+}
+
 /**
  * @brief Gestisce l'invalidazione di una pagina.
  * @param frame             Puntatore al descrittore del frame che contiene la pagina
@@ -139,7 +152,7 @@ static void _storePage(swap_t *frame, memaddr frame_address) {
     DISABLE_INTERRUPTS;
     // Invalidazione della pagina
     frame->sw_pte->pte_entryLO = frame->sw_pte->pte_entryLO & ~VALIDON;
-    TLBCLR();
+    _updateTLB(frame->sw_pte);
     ENABLE_INTERRUPTS;
 
     // Salvataggio della vecchia pagina nel flash drive del processo
@@ -167,16 +180,7 @@ static void _loadPage(pteEntry_t *pt_entry, swap_t *frame, memaddr frame_address
     // Aggiornamento della page table
     DISABLE_INTERRUPTS;
     pt_entry->pte_entryLO = (pt_entry->pte_entryLO & ~ENTRYLO_PFN_MASK) | frame_address | VALIDON;
-
-    // Ricerca frame nel TLB
-    setENTRYHI(pt_entry->pte_entryHI);
-    TLBP();
-    // Aggiornamento TLB
-    if ((getINDEX() & 0x80000000) == 0) {
-        setENTRYHI(pt_entry->pte_entryHI);
-        setENTRYLO(pt_entry->pte_entryLO);
-        TLBWI();
-    }
+    _updateTLB(pt_entry);
     ENABLE_INTERRUPTS;
 }
 
