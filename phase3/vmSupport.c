@@ -96,22 +96,30 @@ static swap_t* _getFrame(memaddr *frame_address) {
 }
 
 /**
+ * @brief Esegue un'operazione sul backing store
+ * @param operation_command     Tipo di operazione (FLASHWRITE/FLASHREAD)
+*/
+static void _backingStoreOperation(int operation_command, int asid, int page_num, memaddr frame_address) {
+    dtpreg_t *flash_dev_reg = (dtpreg_t *)DEV_REG_ADDR(4, asid-1);
+    
+    // Inizializzazione parametri
+    flash_dev_reg->data0 = frame_address;
+    int command = (page_num << 8) + operation_command;
+    
+    int status = SYSCALL(DOIO, (memaddr)&flash_dev_reg->command, command, 0);
+    if (status == FLASH_WRITE_ERROR || status == FLASH_READ_ERROR) {
+        trapExceptionHandler();
+    }
+}
+
+/**
  * @brief Scrive sul flash drive corretto, i dati di una determinata pagina di un processo.
  * @param asid              ASID del processo
  * @param page_num          Numero della pagina da scrivere
  * @param frame_address     Indirizzo di inizio del frame che contiene la pagina
 */
 static void _writePageToFlash(int asid, int page_num, memaddr frame_address) {
-    dtpreg_t *flash_dev_reg = (dtpreg_t *)DEV_REG_ADDR(4, asid-1);
-    
-    // Inizializzazione parametri
-    flash_dev_reg->data0 = frame_address;
-    int command = (page_num << 8) + FLASHWRITE;
-    
-    int status = SYSCALL(DOIO, (memaddr)&flash_dev_reg->command, command, 0);
-    if (status == FLASH_WRITE_ERROR) {
-        trapExceptionHandler();
-    }
+    _backingStoreOperation(FLASHWRITE, asid, page_num, frame_address);
 }
 
 /**
@@ -121,16 +129,7 @@ static void _writePageToFlash(int asid, int page_num, memaddr frame_address) {
  * @param frame_address     Indirizzo di inizio del frame che conterrà la pagina
 */
 static void _readPageFromFlash(int asid, int page_num, memaddr frame_address) {
-    dtpreg_t *flash_dev_reg = (dtpreg_t *)DEV_REG_ADDR(4, asid-1);
-
-    // Inizializzazione parametri
-    flash_dev_reg->data0 = frame_address;
-    int command = (page_num << 8) + FLASHREAD;
-
-    int status = SYSCALL(DOIO, (memaddr)&flash_dev_reg->command, command, 0);
-    if (status == FLASH_READ_ERROR) {
-        trapExceptionHandler();
-    }
+    _backingStoreOperation(FLASHREAD, asid, page_num, frame_address);
 }
 
 /**
