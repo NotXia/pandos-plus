@@ -22,7 +22,6 @@
 
 static semaphore_t swap_pool_sem;
 static swap_t swap_pool_table[POOLSIZE];
-static int swap_pool_index; // Indice della pagina più datata
 
 /**
  * @brief Inizializza le strutture dati per la swap pool.
@@ -30,7 +29,6 @@ static int swap_pool_index; // Indice della pagina più datata
 void initSwapStructs() {
     swap_pool_sem.val = 1;
     swap_pool_sem.user_asid = NOPROC;
-    swap_pool_index = 0;
 
     for (int i=0; i<POOLSIZE; i++) {
         swap_pool_table[i].sw_asid = NOPROC;
@@ -68,27 +66,29 @@ void TLBRefillHandler() {
 
 
 /**
- * @brief Seleziona e restituisce un frame utilizzabile.
- * @returns Un frame utilizzabile.
+ * @brief Seleziona e restituisce un frame utilizzabile (non necessariamente vuoto).
+ * @param frame_address Indirizzo del frame selezionato
+ * @returns Entry della swap pool table del frame selezionato.
 */
 static swap_t* _getFrame(memaddr *frame_address) {
+    static int to_swap_frame_index = 0;
     swap_t *to_swap_frame = NULL;
     memaddr to_swap_frame_address;
 
     // Muove il contatore ad un frame libero se esiste (altrimenti fa un giro completo e torna alla posizione originale)
     for (int i=0; i<POOLSIZE; i++) {
-        if (IS_FREE_FRAME(&swap_pool_table[swap_pool_index])) {
+        if (IS_FREE_FRAME(&swap_pool_table[to_swap_frame_index])) {
             break;
         }
-        swap_pool_index = (swap_pool_index+1) % POOLSIZE;
+        to_swap_frame_index = (to_swap_frame_index+1) % POOLSIZE;
     }
 
     // Estrazione frame
-    to_swap_frame = &swap_pool_table[swap_pool_index];
-    to_swap_frame_address = FRAME_ADDRESS(swap_pool_index);
+    to_swap_frame = &swap_pool_table[to_swap_frame_index];
+    to_swap_frame_address = FRAME_ADDRESS(to_swap_frame_index);
 
     // Incremento del contatore (prossimo possibile frame da selezionare)
-    swap_pool_index = (swap_pool_index+1) % POOLSIZE;
+    to_swap_frame_index = (to_swap_frame_index+1) % POOLSIZE;
 
     *frame_address = to_swap_frame_address;
     return to_swap_frame;
