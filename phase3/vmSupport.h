@@ -9,7 +9,7 @@ void TLBExceptionHandler();
 
 void releaseSwapPoolSem();
 
-void freeFrame(int asid);
+void freeFrames(int asid);
 void initPageTable(int asid, pteEntry_t *page_table, memaddr tmp_frame);
 
 #endif

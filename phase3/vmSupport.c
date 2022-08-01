@@ -53,10 +53,11 @@ static int _getPageIndex(memaddr vpn) {
  * @brief Gestore TLB refill.
 */
 void TLBRefillHandler() {
+    // Estrazione entry nella page table
     int page_index = _getPageIndex(GET_VPN(PREV_PROCESSOR_STATE->entry_hi));
-    
     pteEntry_t pt_entry = curr_process->p_supportStruct->sup_privatePgTbl[page_index];
 
+    // Inserimento in TLB
     setENTRYHI(pt_entry.pte_entryHI);
     setENTRYLO(pt_entry.pte_entryLO);
     TLBWR();
@@ -103,6 +104,7 @@ static swap_t* _getFrame(memaddr *frame_address) {
 static void _writePageToFlash(int asid, int page_num, memaddr frame_address) {
     dtpreg_t *flash_dev_reg = (dtpreg_t *)DEV_REG_ADDR(4, asid-1);
     
+    // Inizializzazione parametri
     flash_dev_reg->data0 = frame_address;
     int command = (page_num << 8) + FLASHWRITE;
     
@@ -121,6 +123,7 @@ static void _writePageToFlash(int asid, int page_num, memaddr frame_address) {
 static void _readPageFromFlash(int asid, int page_num, memaddr frame_address) {
     dtpreg_t *flash_dev_reg = (dtpreg_t *)DEV_REG_ADDR(4, asid-1);
 
+    // Inizializzazione parametri
     flash_dev_reg->data0 = frame_address;
     int command = (page_num << 8) + FLASHREAD;
 
@@ -130,6 +133,10 @@ static void _readPageFromFlash(int asid, int page_num, memaddr frame_address) {
     }
 }
 
+/**
+ * Aggiorna (se esiste) una entry della page table nella TLB.
+ * @param entry Entry della page table da aggiornare
+*/
 static void _updateTLB(pteEntry_t *entry) {
     // Ricerca frame nel TLB
     setENTRYHI(entry->pte_entryHI);
@@ -199,7 +206,7 @@ static void _TLBInvalidHandler(support_t *support_structure) {
     swap_t *new_frame = _getFrame(&new_frame_address);
 
     // Manipolazione delle pagine
-    if (!IS_FREE_FRAME(new_frame)) { // TODO Controllare dirty bit
+    if (!IS_FREE_FRAME(new_frame)) {
         _storePage(new_frame, new_frame_address);
     }
     _loadPage(page_pt_entry, new_frame, new_frame_address);
@@ -223,6 +230,7 @@ void TLBExceptionHandler() {
         case TLBINVLDS:
             _TLBInvalidHandler(support_structure);
             break;
+
         default:
             PANIC();
             break;
@@ -230,7 +238,7 @@ void TLBExceptionHandler() {
 }
 
 /**
- * @brief 
+ * @brief Richiede il rilascio del semaforo della swap pool (se in possesso).
 */
 void releaseSwapPoolSem() {
     support_t *support_structure = (support_t *)SYSCALL(GETSUPPORTPTR, 0, 0, 0);
@@ -243,7 +251,7 @@ void releaseSwapPoolSem() {
  * @brief Libera i frame associati ad un ASID.
  * @param asid ASID del processo.
 */
-void freeFrame(int asid) {
+void freeFrames(int asid) {
     P(&swap_pool_sem, asid);
 
     for (int i=0; i<POOLSIZE; i++) {

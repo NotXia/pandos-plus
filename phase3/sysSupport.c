@@ -44,7 +44,7 @@ static void _getTOD(support_t *support_structure) {
  * @brief System call per terminare un processo.
 */
 static void _terminate(support_t *support_structure) {
-    freeFrame(support_structure->sup_asid);
+    freeFrames(support_structure->sup_asid);
     signalProcessTermination();
     SYSCALL(TERMPROCESS, 0, 0, 0);
 }
