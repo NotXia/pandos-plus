@@ -27,19 +27,6 @@
 static semaphore_t swap_pool_sem;
 static swap_t swap_pool_table[POOLSIZE];
 
-/**
- * @brief Inizializza le strutture dati per la swap pool.
-*/
-void initSwapStructs() {
-    swap_pool_sem.val = 1;
-    swap_pool_sem.user_asid = NOPROC;
-
-    for (int i=0; i<POOLSIZE; i++) {
-        swap_pool_table[i].sw_asid = NOPROC;
-        swap_pool_table[i].sw_pageNo = 0;
-        swap_pool_table[i].sw_pte = NULL;
-    }
-}
 
 /**
  * @brief Calcola e restituisce l'indice della entry nella page table.
@@ -52,23 +39,6 @@ static int _getPageIndex(memaddr vpn) {
     }
     return vpn % 0x80000;
 }
-
-/**
- * @brief Gestore TLB refill.
-*/
-void TLBRefillHandler() {
-    // Estrazione entry nella page table
-    int page_index = _getPageIndex(GET_VPN(PREV_PROCESSOR_STATE->entry_hi));
-    pteEntry_t pt_entry = curr_process->p_supportStruct->sup_privatePgTbl[page_index];
-
-    // Inserimento in TLB
-    setENTRYHI(pt_entry.pte_entryHI);
-    setENTRYLO(pt_entry.pte_entryLO);
-    TLBWR();
-
-    LDST(PREV_PROCESSOR_STATE);
-}
-
 
 /**
  * @brief Seleziona e restituisce un frame utilizzabile (non necessariamente vuoto).
@@ -151,7 +121,7 @@ static void _readPageFromFlash(int asid, int page_num, memaddr frame_address) {
 
 /**
  * @brief Gestisce l'invalidazione di una pagina.
- * @param frame             Puntatore al descrittore del frame che contiene la pagina
+ * @param frame     Puntatore al descrittore del frame che contiene la pagina
 */
 static void _storePage(swap_t *frame) {
     // Invalidazione della pagina
@@ -190,6 +160,7 @@ static void _loadPage(pteEntry_t *pt_entry, swap_t *frame) {
 
 /**
  * @brief Gestore delle eccezioni TLB-invalid.
+ * @param support_structure     Support structure del processo.
 */
 static void _TLBInvalidHandler(support_t *support_structure) {
     P(&swap_pool_sem, support_structure->sup_asid);
@@ -210,6 +181,37 @@ static void _TLBInvalidHandler(support_t *support_structure) {
 
     V(&swap_pool_sem);
     LDST(&support_structure->sup_exceptState[PGFAULTEXCEPT]);
+}
+
+
+/**
+ * @brief Inizializza le strutture dati per la swap pool.
+*/
+void initSwapStructs() {
+    swap_pool_sem.val = 1;
+    swap_pool_sem.user_asid = NOPROC;
+
+    for (int i=0; i<POOLSIZE; i++) {
+        swap_pool_table[i].sw_asid = NOPROC;
+        swap_pool_table[i].sw_pageNo = 0;
+        swap_pool_table[i].sw_pte = NULL;
+    }
+}
+
+/**
+ * @brief Gestore TLB refill.
+*/
+void TLBRefillHandler() {
+    // Estrazione entry nella page table
+    int page_index = _getPageIndex(GET_VPN(PREV_PROCESSOR_STATE->entry_hi));
+    pteEntry_t pt_entry = curr_process->p_supportStruct->sup_privatePgTbl[page_index];
+
+    // Inserimento in TLB
+    setENTRYHI(pt_entry.pte_entryHI);
+    setENTRYLO(pt_entry.pte_entryLO);
+    TLBWR();
+
+    LDST(PREV_PROCESSOR_STATE);
 }
 
 /**
@@ -235,35 +237,7 @@ void TLBExceptionHandler() {
 }
 
 /**
- * @brief Richiede il rilascio del semaforo della swap pool (se in possesso).
-*/
-void releaseSwapPoolSem() {
-    support_t *support_structure = (support_t *)SYSCALL(GETSUPPORTPTR, 0, 0, 0);
-    if (swap_pool_sem.user_asid == support_structure->sup_asid) {
-        V(&swap_pool_sem);
-    }
-}
-
-/**
- * @brief Libera i frame associati ad un ASID.
- * @param asid ASID del processo.
-*/
-void freeFrames(int asid) {
-    P(&swap_pool_sem, asid);
-
-    for (int i=0; i<POOLSIZE; i++) {
-        if (swap_pool_table[i].sw_asid == asid) {
-            swap_pool_table[i].sw_asid = NOPROC;
-            swap_pool_table[i].sw_pageNo = 0;
-            swap_pool_table[i].sw_pte = NULL;
-        }
-    }    
-
-    V(&swap_pool_sem);
-}
-
-/**
- * @brief Inizializza la tabella delle pagine.
+ * @brief Inizializza la tabella delle pagine di un processo.
  * @param asid          ASID del processo.
  * @param page_table    Puntatore alla tabella delle pagine del processo.
  * @param tmp_frame     Indirizzo di un frame di appoggio.
@@ -286,4 +260,33 @@ void initPageTable(int asid, pteEntry_t *page_table, memaddr tmp_frame) {
     // Pagina per lo stack
     page_table[31].pte_entryHI = ((0xBFFFF) << ENTRYHI_VPN_BIT) + (asid << ENTRYHI_ASID_BIT);
     page_table[31].pte_entryLO = 0 | ENTRYLO_DIRTY;
+}
+
+/**
+ * @brief Richiede il rilascio del semaforo della swap pool (se in possesso).
+*/
+void releaseSwapPoolSem() {
+    support_t *support_structure = (support_t *)SYSCALL(GETSUPPORTPTR, 0, 0, 0);
+
+    if (swap_pool_sem.user_asid == support_structure->sup_asid) {
+        V(&swap_pool_sem);
+    }
+}
+
+/**
+ * @brief Libera i frame associati ad un ASID.
+ * @param asid ASID del processo.
+*/
+void freeFrames(int asid) {
+    P(&swap_pool_sem, asid);
+
+    for (int i=0; i<POOLSIZE; i++) {
+        if (swap_pool_table[i].sw_asid == asid) {
+            swap_pool_table[i].sw_asid = NOPROC;
+            swap_pool_table[i].sw_pageNo = 0;
+            swap_pool_table[i].sw_pte = NULL;
+        }
+    }    
+
+    V(&swap_pool_sem);
 }
