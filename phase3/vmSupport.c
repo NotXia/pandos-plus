@@ -15,10 +15,12 @@
 #define IS_FREE_FRAME(frame)        ((frame)->sw_asid == NOPROC)
 #define FRAME_ADDRESS(index)        (FRAME_POOL_START + (index)*PAGESIZE)
 #define FRAME_NUMBER(frame_addr)    (frame_addr - FRAME_POOL_START) / PAGESIZE
+
 #define DISABLE_INTERRUPTS          setSTATUS(getSTATUS() & ~IECON)
 #define ENABLE_INTERRUPTS           setSTATUS(getSTATUS() | IECON)
 
 #define GET_VPN(entry_hi)           ((0b1 << 19) + ENTRYHI_GET_VPN(entry_hi)) // Inserisce il bit 1 implicito
+#define INDEX_P_BIT_MASK            0x80000000
 
 static semaphore_t swap_pool_sem;
 static swap_t swap_pool_table[POOLSIZE];
@@ -68,12 +70,12 @@ void TLBRefillHandler() {
 
 /**
  * @brief Seleziona e restituisce un frame utilizzabile (non necessariamente vuoto).
- * @param frame_address Indirizzo del frame selezionato
+ * @param frame_address Conterrà l'indirizzo del frame selezionato
  * @returns Entry della swap pool table del frame selezionato.
 */
 static swap_t* _getFrame(memaddr *frame_address) {
     static int to_swap_frame_index = 0;
-    swap_t *to_swap_frame = NULL;
+    swap_t *to_swap_frame_entry = NULL;
     memaddr to_swap_frame_address;
 
     // Muove il contatore ad un frame libero se esiste (altrimenti fa un giro completo e torna alla posizione originale)
@@ -85,14 +87,31 @@ static swap_t* _getFrame(memaddr *frame_address) {
     }
 
     // Estrazione frame
-    to_swap_frame = &swap_pool_table[to_swap_frame_index];
+    to_swap_frame_entry = &swap_pool_table[to_swap_frame_index];
     to_swap_frame_address = FRAME_ADDRESS(to_swap_frame_index);
 
     // Incremento del contatore (prossimo possibile frame da selezionare)
     to_swap_frame_index = (to_swap_frame_index+1) % POOLSIZE;
 
     *frame_address = to_swap_frame_address;
-    return to_swap_frame;
+    return to_swap_frame_entry;
+}
+
+/**
+ * Aggiorna (se esiste) una entry della page table nella TLB.
+ * @param entry Entry della page table da aggiornare
+*/
+static void _updateTLB(pteEntry_t *entry) {
+    // Ricerca frame nel TLB
+    setENTRYHI(entry->pte_entryHI);
+    TLBP();
+
+    // Aggiornamento TLB
+    if ((getINDEX() & INDEX_P_BIT_MASK) == 0) {
+        setENTRYHI(entry->pte_entryHI);
+        setENTRYLO(entry->pte_entryLO);
+        TLBWI();
+    }
 }
 
 /**
@@ -133,30 +152,13 @@ static void _readPageFromFlash(int asid, int page_num, memaddr frame_address) {
 }
 
 /**
- * Aggiorna (se esiste) una entry della page table nella TLB.
- * @param entry Entry della page table da aggiornare
-*/
-static void _updateTLB(pteEntry_t *entry) {
-    // Ricerca frame nel TLB
-    setENTRYHI(entry->pte_entryHI);
-    TLBP();
-
-    // Aggiornamento TLB
-    if ((getINDEX() & 0x80000000) == 0) {
-        setENTRYHI(entry->pte_entryHI);
-        setENTRYLO(entry->pte_entryLO);
-        TLBWI();
-    }
-}
-
-/**
  * @brief Gestisce l'invalidazione di una pagina.
  * @param frame             Puntatore al descrittore del frame che contiene la pagina
  * @param frame_address     Indirizzo di inizio del frame che contiene la pagina
 */
 static void _storePage(swap_t *frame, memaddr frame_address) {
-    DISABLE_INTERRUPTS;
     // Invalidazione della pagina
+    DISABLE_INTERRUPTS;
     frame->sw_pte->pte_entryLO = frame->sw_pte->pte_entryLO & ~VALIDON;
     _updateTLB(frame->sw_pte);
     ENABLE_INTERRUPTS;
@@ -266,8 +268,9 @@ void freeFrames(int asid) {
 
 /**
  * @brief Inizializza la tabella delle pagine.
- * @param support Puntatore alla struttura di supporto.
- * @param tmp_frame Indirizzo di un frame di appoggio.
+ * @param asid          ASID del processo.
+ * @param page_table    Puntatore alla entry nella tabella delle pagine.
+ * @param tmp_frame     Indirizzo di un frame di appoggio.
 */
 void initPageTable(int asid, pteEntry_t *page_table, memaddr tmp_frame) {
     // Estrazione header
