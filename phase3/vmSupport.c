@@ -18,7 +18,7 @@
 #define DISABLE_INTERRUPTS          setSTATUS(getSTATUS() & ~IECON)
 #define ENABLE_INTERRUPTS           setSTATUS(getSTATUS() | IECON)
 
-#define GET_VPN(entry_hi)           ((entry_hi & 0b11111111111111111111000000000000) >> VPNSHIFT)
+#define GET_VPN(entry_hi)           ((0b1 << 19) + ENTRYHI_GET_VPN(entry_hi)) // Inserisce il bit 1 implicito
 
 static semaphore_t swap_pool_sem;
 static swap_t swap_pool_table[POOLSIZE];
