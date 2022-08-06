@@ -88,14 +88,25 @@ sorting=none
 
 \section{Introduzione}
 La terza fase del progetto \texttt{PandOS+} consiste nell'implementazione del livello di supporto, 
-in particolare è necessario lo sviluppo della memoria virtuale e di un meccanismo di interfacciamento alle system call che richiedono la modalità kernel.\\
+in particolare è necessario lo sviluppo della memoria virtuale e di un meccanismo di interfacciamento per i processi utente alle system call del kernel.\\
+Per l'implementazione della consegna, sono state seguite le specifiche e le ottimizzazioni proposte. 
+Di seguito sono descritte alcune parti del progetto le cui implementazioni non sono esplicitamente presenti nelle specifiche.
 
+\section{Inizializzazione della tabella delle pagine}
+Come indicato dalle specifiche, l'inizializzazione della tabella delle pagine di un processo deve marcare le pagine \texttt{.text} del processo come read-only.
+Questo richiede di leggere il contenuto dell'header del processo che risiede nella prima pagina. \\
+Poiché lo stack del processo \texttt{test} è contenuto in un singolo frame, il caricamento dell'header comporterebbe un inevitabile overflow dello stack che 
+causerebbe la sovrascrittura delle aree successive dedicate agli stack di gestione delle eccezioni dei processi utente. \\
+La soluzione adottata per risolvere il problema prevede di inizializzare la tabella delle pagine dopo aver assegnato i frame per lo stack al processo utente.
+In questo modo è possibile utilizzare temporaneamente i frame dello stack per caricare l'header in quanto il processo non è ancora stato avviato e non necessita ancora di quelle aree di memoria.
+
+\section{Gestione dei semafori al livello di supporto}
+I semafori al livello di supporto vengono gestiti tramite una struttura dati che associa al valore corrente l'ASID del processo che ne detiene il controllo.
+Questo risulta utile per individuare, in modo più semplice, il processo che deve rilasciare le risorse a seguito di eventi "esterni" che ne causano la terminazione anomala.
 
 \section{Testing}
 Per la compilazione dei test, è stato modificato il \texttt{Makefile} (e conseguentemente i sorgenti) seguendo l'esempio \cite{1}. 
 Questo è stato necessario in quanto la versione precedente non generava correttamente il percorso alla libreria di $\mu$MPS3.
-
-% È
 
 \newpage
 \printbibliography[title={Bibliografia}]
