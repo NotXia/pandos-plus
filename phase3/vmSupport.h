@@ -7,9 +7,9 @@ void initSwapStructs();
 void TLBRefillHandler();
 void TLBExceptionHandler();
 
-void releaseSwapPoolSem();
-
-void freeFrame(int asid);
 void initPageTable(int asid, pteEntry_t *page_table, memaddr tmp_frame);
+
+void releaseSwapPoolSem();
+void freeFrames(int asid);
 
 #endif

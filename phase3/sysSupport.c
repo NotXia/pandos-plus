@@ -1,6 +1,5 @@
 #include "sysSupport.h"
 #include <pandos_types.h>
-#include <initial.h> // TODO Togliere in futuro
 #include <utilities.h>
 #include <vmSupport.h>
 #include <initProc.h>
@@ -19,17 +18,6 @@
 static semaphore_t printer_sem[8];
 static semaphore_t terminal_sem[8];
 
-/**
- * @brief Inizializza i semafori.
-*/
-void initSysStructs() {
-    for (int i=0; i<8; i++) {
-        printer_sem[i].val = 1;
-        printer_sem[i].user_asid = NOPROC;
-        terminal_sem[i].val = 1;
-        terminal_sem[i].user_asid = NOPROC;
-    }
-}
 
 /**
  * @brief System call per restituire il valore del TOD.
@@ -44,11 +32,10 @@ static void _getTOD(support_t *support_structure) {
  * @brief System call per terminare un processo.
 */
 static void _terminate(support_t *support_structure) {
-    freeFrame(support_structure->sup_asid);
+    freeFrames(support_structure->sup_asid);
     signalProcessTermination();
     SYSCALL(TERMPROCESS, 0, 0, 0);
 }
-
 
 /**
  * @brief System call per scrivere su stampante.
@@ -63,6 +50,7 @@ static void _writePrinter(int asid, support_t *support_structure) {
     if (length < 0 || length > 128 || (memaddr)string < KUSEG) { _terminate(support_structure); }
 
     P(&printer_sem[DEVICE_OF(asid)], asid);
+    // Scrittura carattere per carattere
     for (int i=0; i<length; i++) {
         dev_reg->data0 = *string;
         int status = SYSCALL(DOIO, (memaddr)&dev_reg->command, PRINTERWRITE, 0);
@@ -88,6 +76,7 @@ static void _writeTerminal(int asid, support_t *support_structure) {
     if (length < 0 || length > 128 || (memaddr)string < KUSEG) { _terminate(support_structure); }
 
     P(&terminal_sem[DEVICE_OF(asid)], asid);
+    // Scrittura carattere per carattere
     for (int i=0; i<length; i++) {
         int status = SYSCALL(DOIO, (memaddr)&dev_reg->transm_command, (TERMINALWRITE + (*string << 8)), 0);
         if (TERMINAL_STATUS(status) != CHAR_TRANSMITTED) { SYSTEMCALL_RETURN(-status, support_structure); break; }
@@ -112,6 +101,7 @@ static void _readTerminal(int asid, support_t *support_structure) {
     if ((memaddr)buffer < KUSEG) { _terminate(support_structure); }
     
     P(&terminal_sem[DEVICE_OF(asid)], asid);
+    // Lettura fino al successivo new line (compreso)
     while (1) {
         int status = SYSCALL(DOIO, (memaddr)&dev_reg->recv_command, TERMINALREAD, 0);      
         if (TERMINAL_STATUS(status) != CHAR_RECEIVED) { SYSTEMCALL_RETURN(-status, support_structure); break; }
@@ -134,16 +124,30 @@ static void _systemcallHandler(support_t *support_structure) {
     support_structure->sup_exceptState[GENERALEXCEPT].pc_epc += WORD_SIZE;
 
     switch (SYSTEMCALL_CODE(support_structure)) {
-        case GETTOD:         _getTOD(support_structure);        break;
-        case TERMINATE:      _terminate(support_structure);     break;
+        case GETTOD:         _getTOD(support_structure);                                     break;
+        case TERMINATE:      _terminate(support_structure);                                  break;
         case WRITEPRINTER:   _writePrinter(support_structure->sup_asid, support_structure);  break;
         case WRITETERMINAL:  _writeTerminal(support_structure->sup_asid, support_structure); break;
         case READTERMINAL:   _readTerminal(support_structure->sup_asid, support_structure);  break;
-        default:
+        default: 
+            trapExceptionHandler();
             break;
     }
 
     LDST(&support_structure->sup_exceptState[GENERALEXCEPT]);
+}
+
+
+/**
+ * @brief Inizializza i semafori dei device.
+*/
+void initSysStructs() {
+    for (int i=0; i<8; i++) {
+        printer_sem[i].val = 1;
+        printer_sem[i].user_asid = NOPROC;
+        terminal_sem[i].val = 1;
+        terminal_sem[i].user_asid = NOPROC;
+    }
 }
 
 /**
@@ -168,6 +172,7 @@ void generalExceptionHandler() {
 void trapExceptionHandler() {
     support_t *support_structure = (support_t *)SYSCALL(GETSUPPORTPTR, 0, 0, 0);
     
+    // Rilascio dei semafori in possesso
     for (int i = 0; i<8; i++) {
         if (printer_sem[i].user_asid == support_structure->sup_asid) { V(&printer_sem[i]); }
         if (terminal_sem[i].user_asid == support_structure->sup_asid) { V(&terminal_sem[i]); }
