@@ -54,7 +54,7 @@ static void _writePrinter(int asid, support_t *support_structure) {
     for (int i=0; i<length; i++) {
         dev_reg->data0 = *string;
         int status = SYSCALL(DOIO, (memaddr)&dev_reg->command, PRINTERWRITE, 0);
-        if (status != DEV_READY) { SYSTEMCALL_RETURN(-status, support_structure); }
+        if (status != DEV_READY) { SYSTEMCALL_RETURN(-status, support_structure); break; }
         sent++;
         string++;
     }

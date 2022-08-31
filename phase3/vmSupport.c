@@ -170,10 +170,9 @@ static void _TLBInvalidHandler(support_t *support_structure) {
     pteEntry_t *page_pt_entry = &support_structure->sup_privatePgTbl[missing_page_index];
 
     // Preparazione del frame da usare
-    memaddr new_frame_address;
-    swap_t *new_frame = _getFrame(&new_frame_address);
+    swap_t *new_frame = _getFrame();
 
-    // Manipolazione delle pagine
+    // Salvataggio della pagina presente (se esiste)
     if (!IS_FREE_FRAME(new_frame)) {
         _storePage(new_frame);
     }

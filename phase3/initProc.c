@@ -92,7 +92,7 @@ static void _initSupportStructure(int asid, support_t *support) {
         Lo stack viene inizializzato puntando alla fine del frame. Questo perché lo stack cresce verso il basso (nel senso inverso alla memoria).
         Bisogna quindi calcolare l'indirizzo "dell'altra estremità" del frame (l'inizio) per poterlo usare correttamente.
     */
-    memaddr tmp_frame = general_stack+PAGESIZE;
+    memaddr tmp_frame = general_stack - PAGESIZE + WORDLEN;
     initPageTable(asid, support->sup_privatePgTbl, tmp_frame);
 }
 
@@ -132,7 +132,7 @@ void test() {
         _startProcess(i);
     }
 
-    // Attende l'attesa di tutti gli uproc
+    // Attende la terminazione di tutti gli uproc
     for (int i=0; i<UPROCMAX; i++) {
         SYSCALL(PASSEREN, (memaddr)&master_sem, 0, 0);
     }
