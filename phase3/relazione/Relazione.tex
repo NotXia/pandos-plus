@@ -1,0 +1,111 @@
+\documentclass[11pt]{article}
+\usepackage{algorithm2e}
+\usepackage[italian]{babel}
+\usepackage[document]{ragged2e}
+\usepackage{amsfonts, amssymb, amsmath}
+\usepackage{cancel}
+\usepackage{float}
+\usepackage{mathtools}
+\usepackage[margin=3cm]{geometry}
+\usepackage{subfig}
+\usepackage{mwe}
+\usepackage{hyperref}
+\usepackage{array}
+\usepackage{csquotes}
+\usepackage[backend=biber, sorting=none]{biblatex}
+\addbibresource{bibliografia.bib}
+
+\tolerance=1
+\emergencystretch=\maxdimen
+\hyphenpenalty=10000
+\hbadness=10000
+
+\begin{document}
+\graphicspath{ {./img/} }
+\begin{titlepage}
+    \begin{center}
+        \vspace*{1.5cm}
+            
+        \Huge
+        \textbf{PandOS}\texttt{+} \\
+        \LARGE
+        Fase 3
+                        
+        \vspace{2.0cm}
+          
+        \begin{minipage}[t]{0.47\textwidth}
+        \begin{center}
+        	{\large{\bf Cheikh Ibrahim $\cdot$ Zaid}}\\
+			{\large Matricola: \texttt{0000974909}}
+        \end{center}
+
+		\end{minipage}
+		\hfill
+		\begin{minipage}[t]{0.47\textwidth}\raggedleft
+		\begin{center}
+        	{\large{\bf Lee $\cdot$ Qun Hao Henry}}\\
+			{\large Matricola: \texttt{0000990259}}
+        \end{center}
+		\end{minipage}
+
+        \vspace{1cm}
+
+        \begin{minipage}[t]{0.47\textwidth}
+            \begin{center}
+                {\large{\bf Xia $\cdot$ Tian Cheng}}\\
+                {\large Matricola: \texttt{0000975129}}
+            \end{center}
+    
+            \end{minipage}
+            \hfill
+            \begin{minipage}[t]{0.47\textwidth}\raggedleft
+            \begin{center}
+                {\large{\bf Paris $\cdot$ Manuel}}\\
+                {\large Matricola: \texttt{0000997526}}
+            \end{center}
+            \end{minipage}  
+            
+        \vspace{6cm}
+            
+        Anno	 accademico\\
+        $2021 - 2022$
+            
+        \vspace{0.8cm}
+            
+            
+        \Large
+        Corso di Sistemi Operativi\\
+        Alma Mater Studiorum $\cdot$ Università di Bologna\\
+            
+    \end{center}
+\end{titlepage}
+\pagebreak
+
+\newpage
+
+\section{Introduzione}
+La terza fase del progetto \texttt{PandOS+} consiste nell'implementazione del livello di supporto, 
+in particolare è necessario lo sviluppo della memoria virtuale e di un meccanismo di interfacciamento per i processi utente alle system call del kernel.\\
+Per l'implementazione della consegna, sono state seguite le specifiche e le ottimizzazioni proposte. 
+Di seguito sono descritte le scelte progettuali per l'implementazione di alcune componenti del progetto.
+
+\section{Inizializzazione della tabella delle pagine}
+Come indicato dalle specifiche, l'inizializzazione della tabella delle pagine di un processo deve marcare le pagine \texttt{.text} del processo come read-only.
+Questo richiede di leggere il contenuto dell'header del processo che risiede nella prima pagina. \\
+Poiché lo stack del processo \texttt{test} è contenuto in un singolo frame, il caricamento dell'header comporterebbe un inevitabile overflow dello stack che 
+causerebbe la sovrascrittura delle aree successive dedicate agli stack di gestione delle eccezioni dei processi utente. \\
+La soluzione adottata per risolvere il problema prevede di indicare durante la fase di inizializzazione un frame temporaneo in cui caricare l'header.
+In particolare, viene utilizzato momentaneamente il frame dello stack per le \texttt{general exception} del processo utente in quanto il processo non è ancora stato avviato e non necessita ancora di quella area di memoria.
+
+\section{Gestione dei semafori al livello di supporto}
+I semafori al livello di supporto vengono gestiti tramite una struttura dati che associa al valore corrente l'ASID del processo che ne detiene il controllo.
+Questo risulta utile per individuare, in modo più semplice, il processo che deve rilasciare le risorse a seguito di eventi "esterni" che ne causano la terminazione anomala.
+
+\section{Testing}
+Per la compilazione dei test, è stato modificato il \texttt{Makefile} (e conseguentemente i sorgenti) seguendo l'esempio \cite{1}. 
+Questo è stato necessario in quanto la versione precedente non generava correttamente il percorso alla libreria di $\mu$MPS3.
+
+\newpage
+\printbibliography[title={Bibliografia}]
+
+\end{document}

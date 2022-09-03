@@ -110,7 +110,7 @@ static void _verhogen() {
  * @brief System call per inizializzare un'operazione di I/O.
 */
 static void _doIO() {
-    PARAMETER1(int *, command_address);
+    PARAMETER1(memaddr *, command_address);
     PARAMETER2(int, command_value);
 
     *command_address = command_value;
@@ -118,6 +118,8 @@ static void _doIO() {
     softblocked_count++;
     int *dev_semaphore = getIODeviceSemaphore((memaddr)command_address);
     P(dev_semaphore);
+
+    // Valore di ritorno gestito dall'interrupt
 }
 
 /**

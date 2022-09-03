@@ -49,6 +49,12 @@
 #define GETPROCESSID  -9
 #define YIELD         -10
 
+#define GETTOD         1
+#define TERMINATE      2
+#define WRITEPRINTER   3
+#define WRITETERMINAL  4
+#define READTERMINAL   5
+
 
 #define PROCESS_PRIO_LOW  0
 #define PROCESS_PRIO_HIGH 1
@@ -74,6 +80,7 @@
 #define PRINTINTERRUPT 0x00004000
 #define TERMINTERRUPT  0x00008000
 #define IOINTERRUPTS   0
+#define TLBMOD         1
 #define TLBINVLDL      2
 #define TLBINVLDS      3
 #define SYSEXCEPTION   8
@@ -121,6 +128,10 @@
 #define FLASHWRITE 3
 #define BACKREAD   1
 #define BACKWRITE  2
+
+#define PRINTERWRITE 2
+#define TERMINALWRITE 2
+#define TERMINALREAD 2
 
 
 /* Memory Constants */
@@ -174,5 +185,12 @@
 
 #define TERM0ADDR       0x10000254
 
+#define FLASH_READ_ERROR 4
+#define FLASH_WRITE_ERROR 5
+
+#define DEV_READY               1
+#define TERMINAL_STATUS(status) (status & 0b11111111)
+#define CHAR_RECEIVED           5
+#define CHAR_TRANSMITTED        5
 
 #endif

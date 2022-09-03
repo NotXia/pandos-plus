@@ -16,7 +16,7 @@ int semaphore_devices[TOTAL_IO_DEVICES];
 
 // Funzioni fornite dal test
 extern void test();
-extern void uTLB_RefillHandler();
+extern void TLBRefillHandler();
 
 /**
  * @brief Indica se un processo è soft-blocked (quindi bloccato su un qualunque device).
@@ -111,7 +111,7 @@ void startPLT() {
 static void _initPassUpVector() {
     passupvector_t *pass_up_vector = (passupvector_t *)PASSUPVECTOR;
     
-    pass_up_vector->tlb_refill_handler  = (memaddr)uTLB_RefillHandler;
+    pass_up_vector->tlb_refill_handler  = (memaddr)TLBRefillHandler;
     pass_up_vector->tlb_refill_stackPtr = (memaddr)KERNELSTACK;
     pass_up_vector->exception_handler   = (memaddr)exceptionHandler;
     pass_up_vector->exception_stackPtr  = (memaddr)KERNELSTACK;

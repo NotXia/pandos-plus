@@ -34,10 +34,12 @@ typedef struct context_t {
 
 /* Support level descriptor */
 typedef struct support_t {
-    int        sup_asid;                        /* process ID					*/
-    state_t    sup_exceptState[2];              /* old state exceptions			*/
-    context_t  sup_exceptContext[2];            /* new contexts for passing up	*/
-    pteEntry_t sup_privatePgTbl[USERPGTBLSIZE]; /* user page table				*/
+    int        sup_asid;                        /* process ID					    */
+    state_t    sup_exceptState[2];              /* old state exceptions			    */
+    context_t  sup_exceptContext[2];            /* new contexts for passing up	    */
+    pteEntry_t sup_privatePgTbl[USERPGTBLSIZE]; /* user page table				    */
+
+    struct list_head p_list;
 } support_t;
 
 
@@ -82,5 +84,18 @@ typedef struct semd_t {
     /* Semaphore list */
     struct list_head s_link;
 } semd_t, *semd_PTR;
+
+/* Page swap pool information structure type */
+typedef struct swap_t {
+    int         sw_asid;   /* ASID number			*/
+    int         sw_pageNo; /* page's virt page no.	*/
+    pteEntry_t *sw_pte;    /* page's PTE entry.	*/
+} swap_t;
+
+/* Struttura di supporto per mantenere il valore e l'utilizzatore del semaforo */
+typedef struct semaphore {
+    int val, user_asid;
+} semaphore_t;
+
 
 #endif
