@@ -7,7 +7,7 @@ Project for the Operating Systems course at the University of Bologna (A.Y. 2021
 PandOS+ is a didactic operating system for the MIPS architecture running on the [µMPS3 emulator](https://wiki.virtualsquare.org/#!education/umps.md).\
 The project consists of three phases:
 - Phase 1: implementation of some basic data structures.
-- Phase 2: implementation of the kernel's basic functionalities such as process scheduling, kernel mode system calls and interrupts handling.
+- Phase 2: implementation of the kernel basic functionalities such as process scheduling, kernel mode system calls and interrupts handling.
 - Phase 3: implementation of the virtual memory manager and user processes handling.
 
 ## Installation
